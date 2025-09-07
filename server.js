@@ -130,11 +130,32 @@ io.on('connection', socket => {
     socket.join(roomCode);
     socket.emit('joined', roomCode);
     io.to(roomCode).emit('players', Object.values(room.players).map(p => p.name));
+
+    // If a question is already active, send it to the newly joined player
+    if (room.current) {
+      const q = room.categories[room.current.ci].questions[room.current.qi];
+      socket.emit('question', {
+        category: room.categories[room.current.ci].name,
+        text: q.text,
+        options: q.options
+      });
+    }
   });
 
   socket.on('viewerJoin', ({ roomCode }) => {
-    if (rooms[roomCode]) {
+    const room = rooms[roomCode];
+    if (room) {
       socket.join(roomCode);
+
+      // Sync the viewer with the current question if one is active
+      if (room.current) {
+        const q = room.categories[room.current.ci].questions[room.current.qi];
+        socket.emit('question', {
+          category: room.categories[room.current.ci].name,
+          text: q.text,
+          options: q.options
+        });
+      }
     } else {
       console.error(`viewerJoin: room ${roomCode} not found`);
     }
