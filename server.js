@@ -31,6 +31,46 @@ function emitScores(roomCode) {
   io.to(roomCode).emit('scores', scores);
 }
 
+function startMiniGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const duration = 5000; // 5 seconds
+  room.miniGame = {
+    start: Date.now(),
+    duration,
+    counts: {}
+  };
+  io.to(roomCode).emit('miniGameStart', {
+    startTime: room.miniGame.start,
+    duration
+  });
+  room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), duration);
+}
+
+function endMiniGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || !room.miniGame) return;
+  const counts = room.miniGame.counts;
+  let winnerId = null;
+  let max = -1;
+  for (const [id, count] of Object.entries(counts)) {
+    if (count > max) {
+      max = count;
+      winnerId = id;
+    }
+  }
+  let winner = null;
+  if (winnerId && room.players[winnerId]) {
+    room.players[winnerId].score += 1;
+    winner = { id: winnerId, name: room.players[winnerId].name, count: max };
+  }
+  emitScores(roomCode);
+  io.to(roomCode).emit('miniGameEnd', { winner });
+  clearTimeout(room.miniGameTimer);
+  room.miniGame = null;
+  room.miniGameTimer = null;
+}
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -46,7 +86,10 @@ io.on('connection', socket => {
       players: {},
       categories: [],
       remaining: [],
-      current: null
+      current: null,
+      questionCount: 0,
+      miniGame: null,
+      miniGameTimer: null
     };
     socket.join(code);
     socket.emit('roomCreated', code);
@@ -144,6 +187,7 @@ io.on('connection', socket => {
     room.current = { ci: sel.ci, qi: sel.qi, options, answer };
     room.questionStart = Date.now();
     room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+    room.questionCount = (room.questionCount || 0) + 1;
 
     Object.values(room.players).forEach(p => {
       p.answered = false;
@@ -253,18 +297,31 @@ io.on('connection', socket => {
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
       io.to(room.admin).emit('allAnswered');
+      if (room.questionCount % 5 === 0) {
+        startMiniGame(roomCode);
+      }
     }
+  });
+
+  socket.on('miniGameTap', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (!room || !room.miniGame) return;
+    room.miniGame.counts[socket.id] = (room.miniGame.counts[socket.id] || 0) + 1;
   });
 
   socket.on('disconnect', () => {
     for (const [code, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
+        if (room.miniGame && room.miniGame.counts) {
+          delete room.miniGame.counts[socket.id];
+        }
         emitPlayers(code);
         emitScores(code);
       }
       if (room.admin === socket.id) {
         io.to(code).emit('roomClosed');
+        if (room.miniGameTimer) clearTimeout(room.miniGameTimer);
         delete rooms[code];
       }
     }

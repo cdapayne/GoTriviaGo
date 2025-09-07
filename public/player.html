@@ -10,6 +10,10 @@
 <body>
   <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
   <div id="playerScore" class="player-score" style="display:none;"></div>
+  <div id="standingsPanel" class="side-panel" style="display:none;">
+    <h3>Standings</h3>
+    <ul id="standingsList"></ul>
+  </div>
   <div id="submittedMsg" class="submitted-msg" style="display:none;">Question has been submitted.</div>
   <div class="container">
     <div id="join" class="question-block">
@@ -20,8 +24,19 @@
     <div id="game" style="display:none; position:relative; padding-top:60px;">
       <div id="category" class="category-tag" style="left:10px; right:auto; position:fixed; display:none;"></div>
       <div id="question" class="question-block question-display"></div>
-      <div id="progress" class="progress-container" style="display:none;"><div id="progressBar" class="progress-bar"></div></div>
+      <div id="progress" class="progress-container" style="display:none;">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
       <div id="options" class="options-list" style="display:none;"></div>
+    </div>
+    <div id="miniGame" class="question-block" style="display:none; text-align:center;">
+      <h2>Run!</h2>
+      <div id="miniProgress" class="progress-container" style="display:none;">
+        <div id="miniProgressBar" class="progress-bar"></div>
+      </div>
+      <button id="runLeft" style="width:45%; display:inline-block;">Left</button>
+      <button id="runRight" style="width:45%; display:inline-block;">Right</button>
+      <div id="miniResult"></div>
     </div>
     <button id="buzz" class="buzz-btn">Buzz!</button>
   </div>
@@ -31,6 +46,10 @@
     let roomCode = null;
     let selectedAnswer = null;
     let progressInterval = null;
+    let miniInterval = null;
+    let hasAnswered = false;
+    let lastRun = null;
+    let miniGameActive = false;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -38,6 +57,16 @@
         const sd = document.getElementById('playerScore');
         sd.textContent = 'Score: ' + me.score;
         sd.style.display = 'block';
+      }
+      const ul = document.getElementById('standingsList');
+      ul.innerHTML = '';
+      list.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s.name + ': ' + s.score;
+        ul.appendChild(li);
+      });
+      if (hasAnswered && !miniGameActive) {
+        document.getElementById('standingsPanel').style.display = 'block';
       }
     });
 
@@ -57,6 +86,9 @@
 
     socket.on('question', q => {
       selectedAnswer = null;
+      hasAnswered = false;
+      document.getElementById('standingsPanel').style.display = 'none';
+      document.getElementById('miniGame').style.display = 'none';
       const cat = document.getElementById('category');
       cat.textContent = q.category;
       cat.style.display = 'block';
@@ -87,11 +119,13 @@
       const bar = document.getElementById('progressBar');
       if (q.timeLimit) {
         prog.style.display='block';
-        const end = q.startTime + q.timeLimit;
+        bar.style.width = '100%';
+        const duration = q.timeLimit;
+        const end = q.startTime + duration;
         clearInterval(progressInterval);
         progressInterval = setInterval(()=>{
           const remain = Math.max(0, end - Date.now());
-          bar.style.width = (remain / q.timeLimit * 100) + '%';
+          bar.style.width = (remain / duration * 100) + '%';
           if (remain <= 0) clearInterval(progressInterval);
         },100);
       } else {
@@ -108,6 +142,7 @@
         document.getElementById('options').style.display='none';
         btn.style.display='none';
         document.getElementById('submittedMsg').style.display = 'block';
+        hasAnswered = true;
       }
     };
 
@@ -126,6 +161,58 @@
 
     socket.on('roomClosed', () => {
       alert('Room closed');
+    });
+
+    socket.on('miniGameStart', ({ duration, startTime }) => {
+      document.getElementById('game').style.display = 'none';
+      document.getElementById('standingsPanel').style.display = 'none';
+      const mg = document.getElementById('miniGame');
+      mg.style.display = 'block';
+      lastRun = null;
+      miniGameActive = true;
+      const prog = document.getElementById('miniProgress');
+      const bar = document.getElementById('miniProgressBar');
+      prog.style.display = 'block';
+      bar.style.width = '100%';
+      clearInterval(miniInterval);
+      const end = startTime + duration;
+      miniInterval = setInterval(() => {
+        const remain = Math.max(0, end - Date.now());
+        bar.style.width = (remain / duration * 100) + '%';
+        if (remain <= 0) clearInterval(miniInterval);
+      }, 100);
+    });
+
+    document.getElementById('runLeft').onclick = () => {
+      if (lastRun !== 'left') {
+        socket.emit('miniGameTap', { roomCode });
+        lastRun = 'left';
+      }
+    };
+    document.getElementById('runRight').onclick = () => {
+      if (lastRun !== 'right') {
+        socket.emit('miniGameTap', { roomCode });
+        lastRun = 'right';
+      }
+    };
+
+    socket.on('miniGameEnd', ({ winner }) => {
+      clearInterval(miniInterval);
+      const res = document.getElementById('miniResult');
+      if (winner) {
+        res.textContent = winner.name + ' wins!';
+      } else {
+        res.textContent = 'No winner';
+      }
+      setTimeout(() => {
+        document.getElementById('miniGame').style.display = 'none';
+        document.getElementById('game').style.display = 'block';
+        res.textContent = '';
+        miniGameActive = false;
+        if (hasAnswered) {
+          document.getElementById('standingsPanel').style.display = 'block';
+        }
+      }, 2000);
     });
   </script>
 </body>
