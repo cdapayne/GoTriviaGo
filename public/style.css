@@ -297,3 +297,38 @@ input, textarea, select {
 @media (max-width: 600px) {
   body { padding: 0.5rem; }
 }
+
+.admin-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: var(--surface);
+  padding: 0.25rem 0.5rem;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  z-index: 1000;
+}
+
+.admin-footer ul {
+  display: flex;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-footer li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#answerFrame {
+  width: 100%;
+  height: calc(100vh - 50px);
+  border: none;
+}
