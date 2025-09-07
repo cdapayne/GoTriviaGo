@@ -42,6 +42,7 @@ function handleTimeUp(roomCode) {
       p.time = room.timeLimit;
     }
   });
+  room.current = null;
   room.questionTimer = null;
   io.to(roomCode).emit('timeUp');
   if (room.questionCount % 5 === 0) {
@@ -53,7 +54,7 @@ function handleTimeUp(roomCode) {
 
 function startMiniGame(roomCode) {
   const room = rooms[roomCode];
-  if (!room) return;
+  if (!room || room.miniGame) return;
   const duration = 10000; // 10 seconds
   room.miniGame = {
     start: Date.now(),
@@ -335,6 +336,7 @@ io.on('connection', socket => {
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
       if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
+      room.current = null;
       if (room.questionCount % 5 === 0) {
         startMiniGame(roomCode);
       } else if (room.remaining.length > 0 && room.lastSettings) {
