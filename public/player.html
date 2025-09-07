@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Player</title>
+  <style>
+    .option { display:block; margin:5px 0; }
+  </style>
+</head>
+<body>
+  <h1>Player</h1>
+  <div id="join">
+    Room Code: <input id="room"><br>
+    Name: <input id="name"><br>
+    <button id="joinBtn">Join</button>
+  </div>
+  <div id="game" style="display:none;">
+    <div id="question"></div>
+    <button id="buzz">Buzz!</button>
+    <div id="options" style="display:none;"></div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let roomCode = null;
+
+    document.getElementById('joinBtn').onclick = () => {
+      roomCode = document.getElementById('room').value.toUpperCase();
+      const name = document.getElementById('name').value;
+      socket.emit('playerJoin', { roomCode, name });
+    };
+
+    socket.on('joined', code => {
+      document.getElementById('join').style.display='none';
+      document.getElementById('game').style.display='block';
+    });
+
+    socket.on('question', q => {
+      document.getElementById('question').textContent = q.category + ': ' + q.text;
+      document.getElementById('options').style.display='none';
+      document.getElementById('buzz').style.display='inline';
+      const optsDiv = document.getElementById('options');
+      optsDiv.innerHTML='';
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = opt;
+        btn.className='option';
+        btn.onclick = () => {
+          socket.emit('playerAnswer', { roomCode, answer: idx });
+          document.getElementById('options').style.display='none';
+        };
+        optsDiv.appendChild(btn);
+      });
+    });
+
+    document.getElementById('buzz').onclick = () => {
+      socket.emit('playerBuzz', { roomCode });
+    };
+
+    socket.on('buzzAccepted', () => {
+      document.getElementById('buzz').style.display='none';
+      document.getElementById('options').style.display='block';
+    });
+
+    socket.on('roomClosed', () => {
+      alert('Room closed');
+    });
+  </script>
+</body>
+</html>
