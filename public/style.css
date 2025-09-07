@@ -70,6 +70,96 @@ input, textarea, select {
 .correct { color: var(--correct); }
 .incorrect { color: var(--incorrect); }
 
+.room-code {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: #1E90FF;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: bold;
+  z-index: 1000;
+}
+
+.side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 200px;
+  height: 100%;
+  background: var(--surface);
+  padding: 1rem;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.5);
+  overflow-y: auto;
+}
+
+.buzz-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 400px;
+}
+
+.category-tag {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 0.25rem 0.5rem;
+  font-weight: bold;
+}
+
+.question-display {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  background: rgba(255,255,255,0.1);
+  border-radius: 8px;
+}
+
+.options-list .option {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.options-list .option.selected {
+  background: var(--correct);
+}
+
+.presentation {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.answers-list {
+  list-style: none;
+  padding: 0;
+  margin: 2rem;
+}
+
+.answers-list li {
+  padding: 0.5rem;
+  border-radius: 8px;
+  width: 45%;
+  margin: 0.5rem;
+}
+
+.answers-list li.correct {
+  background: var(--correct);
+  margin-left: auto;
+  text-align: right;
+}
+
+.answers-list li.incorrect {
+  background: var(--incorrect);
+  margin-right: auto;
+  text-align: left;
+}
+
 @media (max-width: 600px) {
   body { padding: 0.5rem; }
 }

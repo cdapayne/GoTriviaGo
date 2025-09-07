@@ -10,6 +10,27 @@ app.use(express.static('public'));
 
 const rooms = {};
 
+function getScores(room) {
+  const scores = Object.entries(room.players).map(([id, p]) => ({ id, name: p.name, score: p.score }));
+  scores.sort((a, b) => b.score - a.score);
+  return scores;
+}
+
+function emitPlayers(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const list = Object.entries(room.players).map(([id, p]) => ({ id, name: p.name }));
+  io.to(room.admin).emit('players', list);
+}
+
+function emitScores(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const scores = getScores(room);
+  io.to(room.admin).emit('scores', scores);
+  io.to(roomCode).emit('scores', scores);
+}
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -107,11 +128,13 @@ io.on('connection', socket => {
     const idx = Math.floor(Math.random() * room.remaining.length);
     const sel = room.remaining.splice(idx, 1)[0];
     room.current = sel;
+    room.questionStart = Date.now();
     const q = room.categories[sel.ci].questions[sel.qi];
     Object.values(room.players).forEach(p => {
       p.answered = false;
       p.answer = null;
       p.correct = null;
+      p.time = null;
     });
     io.to(roomCode).emit('question', {
       category: room.categories[sel.ci].name,
@@ -129,7 +152,8 @@ io.on('connection', socket => {
     room.players[socket.id] = { name, score: 0, answered: false };
     socket.join(roomCode);
     socket.emit('joined', roomCode);
-    io.to(roomCode).emit('players', Object.values(room.players).map(p => p.name));
+    emitPlayers(roomCode);
+    emitScores(roomCode);
 
     // If a question is already active, send it to the newly joined player
     if (room.current) {
@@ -156,6 +180,7 @@ io.on('connection', socket => {
           options: q.options
         });
       }
+      emitScores(roomCode);
     } else {
       console.error(`viewerJoin: room ${roomCode} not found`);
     }
@@ -163,6 +188,21 @@ io.on('connection', socket => {
 
   socket.on('playerBuzz', ({ roomCode }) => {
     socket.emit('buzzAccepted');
+  });
+
+  socket.on('adminRemovePlayer', ({ roomCode, playerId }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    if (room.players[playerId]) {
+      const target = io.sockets.sockets.get(playerId);
+      if (target) {
+        target.leave(roomCode);
+        target.emit('removed');
+      }
+      delete room.players[playerId];
+      emitPlayers(roomCode);
+      emitScores(roomCode);
+    }
   });
 
   socket.on('playerAnswer', ({ roomCode, answer }) => {
@@ -185,15 +225,22 @@ io.on('connection', socket => {
     player.answered = true;
     player.answer = answer;
     player.correct = correct;
+    player.time = Date.now() - room.questionStart;
     if (correct) player.score += 1;
-    io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct });
+    io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct, time: player.time });
+    emitScores(roomCode);
+    const allAnswered = Object.values(room.players).every(p => p.answered);
+    if (allAnswered) {
+      io.to(room.admin).emit('allAnswered');
+    }
   });
 
   socket.on('disconnect', () => {
     for (const [code, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
-        io.to(code).emit('players', Object.values(room.players).map(p => p.name));
+        emitPlayers(code);
+        emitScores(code);
       }
       if (room.admin === socket.id) {
         io.to(code).emit('roomClosed');
