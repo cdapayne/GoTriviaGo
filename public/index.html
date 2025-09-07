@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>GoTriviaGo</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .intro-container {
+      text-align: center;
+      margin-top: 2rem;
+    }
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    @media (min-width: 600px) {
+      .cards {
+        flex-direction: row;
+        justify-content: space-between;
+      }
+    }
+    .card {
+      flex: 1;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .card h2 {
+      margin-top: 0;
+    }
+    .card button {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container intro-container">
+    <h1>GoTriviaGo</h1>
+    <p>Select your view to get started.</p>
+    <div class="cards">
+      <div class="card">
+        <h2>Admin</h2>
+        <p>Create rooms, manage questions and control the game flow.</p>
+        <button onclick="location.href='admin.html'">Admin Page</button>
+      </div>
+      <div class="card">
+        <h2>Player</h2>
+        <p>Join a game room and compete in trivia challenges.</p>
+        <button onclick="location.href='player.html'">Player Page</button>
+      </div>
+      <div class="card">
+        <h2>Answer Screen</h2>
+        <p>Display current questions and scores for spectators.</p>
+        <button onclick="location.href='answer.html'">Answer Screen</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
