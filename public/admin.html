@@ -41,6 +41,8 @@
     <div id="leader"></div>
     <ul id="scoreList"></ul>
   </div>
+  <iframe id="answerFrame" style="display:none;"></iframe>
+  <div id="adminFooter" class="admin-footer" style="display:none;"><ul id="footerPlayers"></ul></div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -149,6 +151,13 @@
       const tl = parseInt(document.getElementById('timeLimit').value, 10);
       socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl });
       document.getElementById('nextQuestion').style.display = 'none';
+      const frame = document.getElementById('answerFrame');
+      frame.src = '/answer.html?room=' + roomCode;
+      frame.style.display = 'block';
+      document.querySelector('.container').style.display = 'none';
+      document.getElementById('scorePanel').style.display = 'none';
+      document.getElementById('roomCodeDisplay').style.display = 'none';
+      document.getElementById('adminFooter').style.display = 'block';
     };
 
     document.getElementById('generate').onclick = () => {
@@ -203,7 +212,9 @@
     };
     socket.on('players', list => {
       const ul = document.getElementById('players');
+      const foot = document.getElementById('footerPlayers');
       ul.innerHTML = '';
+      if (foot) foot.innerHTML = '';
       list.forEach(p => {
         const li = document.createElement('li');
         li.textContent = p.name + ' ';
@@ -212,6 +223,15 @@
         btn.onclick = () => socket.emit('adminRemovePlayer', { roomCode, playerId: p.id });
         li.appendChild(btn);
         ul.appendChild(li);
+        if (foot) {
+          const fli = document.createElement('li');
+          fli.textContent = p.name + ' ';
+          const fbtn = document.createElement('button');
+          fbtn.textContent = 'Remove';
+          fbtn.onclick = () => socket.emit('adminRemovePlayer', { roomCode, playerId: p.id });
+          fli.appendChild(fbtn);
+          foot.appendChild(fli);
+        }
       });
     });
 
