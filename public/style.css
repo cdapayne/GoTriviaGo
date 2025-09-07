@@ -210,6 +210,37 @@ input, textarea, select {
   width: 100%;
 }
 
+.admin-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  padding: 0.5rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-footer ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.admin-footer li {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.admin-footer li button {
+  padding: 0.25rem 0.5rem;
+}
+
 .player-score {
   position: fixed;
   top: 10px;

@@ -9,7 +9,8 @@
 </head>
 <body>
   <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
-  <div class="container">
+
+  <div id="setupScreen" class="container">
     <h1>Admin</h1>
     <button id="createRoom">Create Room</button>
     <div id="roomInfo"></div>
@@ -27,24 +28,42 @@
       </div>
       <label><input type="checkbox" id="randomize"> Randomize answers</label>
       <input id="timeLimit" type="number" placeholder="Time limit (seconds)">
-      <button id="nextQuestion" style="display:none;">Start Question</button>
-    </div>
-    <div>
-      <h3>Players:</h3>
-      <ul id="players"></ul>
-      <button id="toggleScores" style="display:none;">Toggle Scores</button>
     </div>
   </div>
+
+  <div id="display" class="presentation" style="display:none;">
+    <div id="catDisplay" class="category-tag" style="left:10px; right:auto;"></div>
+    <div id="question" class="question-display"></div>
+    <div id="progress" class="progress-container" style="display:none;"><div id="progressBar" class="progress-bar"></div></div>
+    <div id="timer" class="timer" style="display:none;"></div>
+    <div id="answers" class="answers-columns">
+      <div class="column"><h2>Correct</h2><ul id="correctList" class="answers-list"></ul></div>
+      <div class="column"><h2>Incorrect</h2><ul id="incorrectList" class="answers-list"></ul></div>
+    </div>
+  </div>
+
   <div id="scorePanel" class="side-panel" style="display:none;">
     <h3>Scores</h3>
     <div id="leader"></div>
     <ul id="scoreList"></ul>
   </div>
+
+  <div id="adminFooter" class="admin-footer" style="display:none;">
+    <button id="nextQuestion" style="display:none;">Start Question</button>
+    <button id="toggleScores" style="display:none;">Toggle Scores</button>
+    <ul id="players"></ul>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+    const letters = ['A','B','C','D'];
     let roomCode = null;
     let generatedData = null;
+    let currentOptions = [];
+    let playerCount = 0;
+    let answered = 0;
+    let timerInterval = null;
+    let progressInterval = null;
 
     document.getElementById('createRoom').onclick = () => {
       socket.emit('adminCreateRoom');
@@ -59,6 +78,7 @@
       document.getElementById('setup').style.display = 'block';
       document.getElementById('scorePanel').style.display = 'block';
       document.getElementById('toggleScores').style.display = 'block';
+      document.getElementById('adminFooter').style.display = 'flex';
       buildForm();
       refreshSaved();
     });
@@ -110,7 +130,7 @@
       }
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Start Question';
-      btn.style.display = 'block';
+      btn.style.display = 'inline-block';
     };
 
     document.getElementById('nextQuestion').onclick = () => {
@@ -118,6 +138,8 @@
       const tl = parseInt(document.getElementById('timeLimit').value, 10);
       socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl });
       document.getElementById('nextQuestion').style.display = 'none';
+      document.getElementById('setupScreen').style.display = 'none';
+      document.getElementById('display').style.display = 'block';
     };
 
     document.getElementById('generate').onclick = () => {
@@ -190,6 +212,7 @@
     document.getElementById('toggleScores').onclick = () => {
       document.getElementById('scorePanel').classList.toggle('collapsed');
     };
+
     socket.on('players', list => {
       const ul = document.getElementById('players');
       ul.innerHTML = '';
@@ -204,7 +227,58 @@
       });
     });
 
+    socket.on('question', q => {
+      document.getElementById('catDisplay').textContent = q.category;
+      document.getElementById('question').textContent = q.text;
+      document.getElementById('correctList').innerHTML='';
+      document.getElementById('incorrectList').innerHTML='';
+      currentOptions = q.options;
+      answered = 0;
+      // timer
+      const timerDiv = document.getElementById('timer');
+      timerDiv.style.display='block';
+      clearInterval(timerInterval);
+      timerInterval = setInterval(()=>{
+        timerDiv.textContent = ((Date.now() - q.startTime)/1000).toFixed(1)+'s';
+      },100);
+      // progress bar
+      const prog = document.getElementById('progress');
+      const bar = document.getElementById('progressBar');
+      if (q.timeLimit) {
+        prog.style.display='block';
+        const end = q.startTime + q.timeLimit;
+        clearInterval(progressInterval);
+        progressInterval = setInterval(()=>{
+          const remain = Math.max(0, end - Date.now());
+          bar.style.width = (remain / q.timeLimit * 100) + '%';
+          if (remain <= 0) clearInterval(progressInterval);
+        },100);
+      } else {
+        prog.style.display='none';
+      }
+    });
+
+    socket.on('playerAnswered', data => {
+      const li = document.createElement('li');
+      const text = currentOptions[data.answer] || letters[data.answer];
+      const secs = (data.time/1000).toFixed(2) + 's';
+      li.textContent = data.name + ': ' + text;
+      const chip = document.createElement('span');
+      chip.className='time-chip';
+      chip.textContent=secs;
+      li.appendChild(chip);
+      li.className = data.correct ? 'correct' : 'incorrect';
+      const target = data.correct ? 'correctList' : 'incorrectList';
+      document.getElementById(target).appendChild(li);
+      answered++;
+      if (answered >= playerCount) {
+        clearInterval(timerInterval);
+        clearInterval(progressInterval);
+      }
+    });
+
     socket.on('scores', list => {
+      playerCount = list.length;
       const ul = document.getElementById('scoreList');
       ul.innerHTML = '';
       list.forEach(s => {
@@ -218,7 +292,7 @@
     socket.on('allAnswered', () => {
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Next Question';
-      btn.style.display = 'block';
+      btn.style.display = 'inline-block';
     });
 
     socket.on('roomClosed', () => {
