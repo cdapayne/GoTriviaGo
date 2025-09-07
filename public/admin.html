@@ -185,6 +185,10 @@
         });
         categoriesDiv.appendChild(catDiv);
       });
+      socket.emit('adminSetup', { roomCode, categories: data });
+      const btn = document.getElementById('nextQuestion');
+      btn.textContent = 'Start Question';
+      btn.style.display = 'block';
     };
 
     document.getElementById('toggleScores').onclick = () => {
@@ -214,13 +218,6 @@
       });
       document.getElementById('leader').textContent = list.length ? ('Leader: ' + list[0].name) : '';
     });
-
-    socket.on('allAnswered', () => {
-      const btn = document.getElementById('nextQuestion');
-      btn.textContent = 'Next Question';
-      btn.style.display = 'block';
-    });
-
     socket.on('roomClosed', () => {
       alert('Room closed');
     });

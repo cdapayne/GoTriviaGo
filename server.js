@@ -69,10 +69,57 @@ function endMiniGame(roomCode) {
   clearTimeout(room.miniGameTimer);
   room.miniGame = null;
   room.miniGameTimer = null;
+  if (room.remaining.length > 0 && room.lastSettings) {
+    setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
 }
 
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+function startQuestion(roomCode, randomize, timeLimit) {
+  const room = rooms[roomCode];
+  if (!room || room.remaining.length === 0) {
+    console.error(`startQuestion: room ${roomCode} not found or no questions remaining`);
+    return;
+  }
+  room.lastSettings = { randomize, timeLimit };
+  const idx = Math.floor(Math.random() * room.remaining.length);
+  const sel = room.remaining.splice(idx, 1)[0];
+  const q = room.categories[sel.ci].questions[sel.qi];
+
+  let options = [...q.options];
+  let answer = q.answer;
+  if (randomize) {
+    const arr = options.map((o, i) => ({ o, i }));
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    options = arr.map(a => a.o);
+    answer = arr.findIndex(a => a.i === q.answer);
+  }
+
+  room.current = { ci: sel.ci, qi: sel.qi, options, answer };
+  room.questionStart = Date.now();
+  room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+  room.questionCount = (room.questionCount || 0) + 1;
+
+  Object.values(room.players).forEach(p => {
+    p.answered = false;
+    p.answer = null;
+    p.correct = null;
+    p.time = null;
+  });
+
+  io.to(roomCode).emit('question', {
+    category: room.categories[sel.ci].name,
+    text: q.text,
+    options,
+    timeLimit: room.timeLimit,
+    startTime: room.questionStart
+  });
 }
 
 io.on('connection', socket => {
@@ -163,46 +210,7 @@ io.on('connection', socket => {
   });
 
   socket.on('adminStartQuestion', ({ roomCode, randomize, timeLimit }) => {
-    const room = rooms[roomCode];
-    if (!room || room.remaining.length === 0) {
-      console.error(`adminStartQuestion: room ${roomCode} not found or no questions remaining`);
-      return;
-    }
-    const idx = Math.floor(Math.random() * room.remaining.length);
-    const sel = room.remaining.splice(idx, 1)[0];
-    const q = room.categories[sel.ci].questions[sel.qi];
-
-    let options = [...q.options];
-    let answer = q.answer;
-    if (randomize) {
-      const arr = options.map((o, i) => ({ o, i }));
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      options = arr.map(a => a.o);
-      answer = arr.findIndex(a => a.i === q.answer);
-    }
-
-    room.current = { ci: sel.ci, qi: sel.qi, options, answer };
-    room.questionStart = Date.now();
-    room.timeLimit = timeLimit ? timeLimit * 1000 : null;
-    room.questionCount = (room.questionCount || 0) + 1;
-
-    Object.values(room.players).forEach(p => {
-      p.answered = false;
-      p.answer = null;
-      p.correct = null;
-      p.time = null;
-    });
-
-    io.to(roomCode).emit('question', {
-      category: room.categories[sel.ci].name,
-      text: q.text,
-      options,
-      timeLimit: room.timeLimit,
-      startTime: room.questionStart
-    });
+    startQuestion(roomCode, randomize, timeLimit);
   });
 
   socket.on('playerJoin', ({ roomCode, name }) => {
@@ -296,9 +304,10 @@ io.on('connection', socket => {
     emitScores(roomCode);
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
-      io.to(room.admin).emit('allAnswered');
       if (room.questionCount % 5 === 0) {
         startMiniGame(roomCode);
+      } else if (room.remaining.length > 0 && room.lastSettings) {
+        setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
       }
     }
   });
