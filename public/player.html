@@ -103,6 +103,7 @@
       const optsDiv = document.getElementById('options');
       optsDiv.style.display='none';
       optsDiv.innerHTML='';
+      optsDiv.style.pointerEvents='auto';
       q.options.forEach((opt, idx) => {
         const btn = document.createElement('button');
         btn.textContent = opt;
