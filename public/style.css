@@ -240,6 +240,11 @@ input, textarea, select {
   text-align: center;
 }
 
+.countdown {
+  font-size: 4rem;
+  font-weight: bold;
+}
+
 @media (max-width: 600px) {
   body { padding: 0.5rem; }
 }

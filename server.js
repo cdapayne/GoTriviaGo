@@ -55,17 +55,19 @@ function handleTimeUp(roomCode) {
 function startMiniGame(roomCode) {
   const room = rooms[roomCode];
   if (!room || room.miniGame) return;
-  const duration = 10000; // 10 seconds
+  const countdown = 3000; // 3 second countdown
+  const duration = 10000; // 10 seconds of running
   room.miniGame = {
-    start: Date.now(),
+    start: Date.now() + countdown,
     duration,
     counts: {}
   };
   io.to(roomCode).emit('miniGameStart', {
     startTime: room.miniGame.start,
-    duration
+    duration,
+    countdown
   });
-  room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), duration);
+  room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), countdown + duration);
 }
 
 function endMiniGame(roomCode, forcedWinnerId = null) {

@@ -31,6 +31,8 @@
     </div>
     <div id="miniGame" class="question-block" style="display:none; text-align:center;">
       <h2>Run!</h2>
+      <div id="miniInstructions" style="margin-bottom:10px;">Alternate tapping Left and Right or use the ← → arrow keys!</div>
+      <div id="miniCountdown" class="countdown" style="display:none;"></div>
       <div id="miniProgress" class="progress-container" style="display:none;">
         <div id="miniProgressBar" class="progress-bar"></div>
       </div>
@@ -52,6 +54,8 @@
     let lastRun = null;
     let miniGameActive = false;
     let runDistance = 0;
+    let miniGameReady = false;
+    let miniCountdownTimer = null;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -168,40 +172,69 @@
       alert('Room closed');
     });
 
-    socket.on('miniGameStart', ({ duration, startTime }) => {
+    socket.on('miniGameStart', ({ duration, startTime, countdown = 0 }) => {
       document.getElementById('game').style.display = 'none';
       document.getElementById('standingsPanel').style.display = 'none';
       const mg = document.getElementById('miniGame');
       mg.style.display = 'block';
       lastRun = null;
       miniGameActive = true;
-       runDistance = 0;
-       document.getElementById('miniDistance').textContent = '0 m';
+      miniGameReady = false;
+      runDistance = 0;
+      document.getElementById('miniDistance').textContent = '0 m';
       const prog = document.getElementById('miniProgress');
       const bar = document.getElementById('miniProgressBar');
-      prog.style.display = 'block';
+      prog.style.display = 'none';
       bar.style.width = '100%';
       clearInterval(miniInterval);
-      const end = startTime + duration;
-      miniInterval = setInterval(() => {
-        const remain = Math.max(0, end - Date.now());
-        bar.style.width = (remain / duration * 100) + '%';
-        if (remain <= 0) clearInterval(miniInterval);
-      }, 100);
+      clearInterval(miniCountdownTimer);
+      if (countdown > 0) {
+        const cd = document.getElementById('miniCountdown');
+        cd.style.display = 'block';
+        let remain = Math.ceil((startTime - Date.now()) / 1000);
+        cd.textContent = remain;
+        miniCountdownTimer = setInterval(() => {
+          remain--;
+          if (remain > 0) {
+            cd.textContent = remain;
+          } else {
+            clearInterval(miniCountdownTimer);
+            cd.style.display = 'none';
+            beginRun();
+          }
+        }, 1000);
+      } else {
+        beginRun();
+      }
+
+      function beginRun() {
+        miniGameReady = true;
+        const end = startTime + duration;
+        prog.style.display = 'block';
+        miniInterval = setInterval(() => {
+          const remainTime = Math.max(0, end - Date.now());
+          bar.style.width = (remainTime / duration * 100) + '%';
+          if (remainTime <= 0) clearInterval(miniInterval);
+        }, 100);
+      }
     });
 
-    document.getElementById('runLeft').onclick = () => {
-      if (lastRun !== 'left') {
+    function handleRun(dir) {
+      if (!miniGameReady) return;
+      if (lastRun !== dir) {
         socket.emit('miniGameTap', { roomCode });
-        lastRun = 'left';
+        lastRun = dir;
       }
-    };
-    document.getElementById('runRight').onclick = () => {
-      if (lastRun !== 'right') {
-        socket.emit('miniGameTap', { roomCode });
-        lastRun = 'right';
-      }
-    };
+    }
+
+    document.getElementById('runLeft').onclick = () => handleRun('left');
+    document.getElementById('runRight').onclick = () => handleRun('right');
+
+    document.addEventListener('keydown', (e) => {
+      if (!miniGameActive) return;
+      if (e.key === 'ArrowLeft') handleRun('left');
+      if (e.key === 'ArrowRight') handleRun('right');
+    });
 
     socket.on('miniGameDistance', ({ distance }) => {
       runDistance = distance;
@@ -221,6 +254,8 @@
         document.getElementById('game').style.display = 'block';
         res.textContent = '';
         miniGameActive = false;
+        miniGameReady = false;
+        clearInterval(miniCountdownTimer);
         if (hasAnswered) {
           document.getElementById('standingsPanel').style.display = 'block';
         }
