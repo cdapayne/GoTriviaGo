@@ -119,7 +119,7 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('adminStartQuestion', ({ roomCode }) => {
+  socket.on('adminStartQuestion', ({ roomCode, randomize, timeLimit }) => {
     const room = rooms[roomCode];
     if (!room || room.remaining.length === 0) {
       console.error(`adminStartQuestion: room ${roomCode} not found or no questions remaining`);
@@ -127,19 +127,37 @@ io.on('connection', socket => {
     }
     const idx = Math.floor(Math.random() * room.remaining.length);
     const sel = room.remaining.splice(idx, 1)[0];
-    room.current = sel;
-    room.questionStart = Date.now();
     const q = room.categories[sel.ci].questions[sel.qi];
+
+    let options = [...q.options];
+    let answer = q.answer;
+    if (randomize) {
+      const arr = options.map((o, i) => ({ o, i }));
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      options = arr.map(a => a.o);
+      answer = arr.findIndex(a => a.i === q.answer);
+    }
+
+    room.current = { ci: sel.ci, qi: sel.qi, options, answer };
+    room.questionStart = Date.now();
+    room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+
     Object.values(room.players).forEach(p => {
       p.answered = false;
       p.answer = null;
       p.correct = null;
       p.time = null;
     });
+
     io.to(roomCode).emit('question', {
       category: room.categories[sel.ci].name,
       text: q.text,
-      options: q.options
+      options,
+      timeLimit: room.timeLimit,
+      startTime: room.questionStart
     });
   });
 
@@ -161,7 +179,9 @@ io.on('connection', socket => {
       socket.emit('question', {
         category: room.categories[room.current.ci].name,
         text: q.text,
-        options: q.options
+        options: room.current.options,
+        timeLimit: room.timeLimit,
+        startTime: room.questionStart
       });
     }
   });
@@ -177,7 +197,9 @@ io.on('connection', socket => {
         socket.emit('question', {
           category: room.categories[room.current.ci].name,
           text: q.text,
-          options: q.options
+          options: room.current.options,
+          timeLimit: room.timeLimit,
+          startTime: room.questionStart
         });
       }
       emitScores(roomCode);
@@ -220,8 +242,7 @@ io.on('connection', socket => {
       console.warn(`playerAnswer: player ${socket.id} already answered`);
       return;
     }
-    const q = room.categories[room.current.ci].questions[room.current.qi];
-    const correct = answer === q.answer;
+    const correct = answer === room.current.answer;
     player.answered = true;
     player.answer = answer;
     player.correct = correct;
