@@ -92,6 +92,11 @@ input, textarea, select {
   padding: 1rem;
   box-shadow: -2px 0 8px rgba(0,0,0,0.5);
   overflow-y: auto;
+  transition: transform 0.3s ease;
+}
+
+.side-panel.collapsed {
+  transform: translateX(100%);
 }
 
 .buzz-btn {
@@ -164,6 +169,45 @@ input, textarea, select {
 
 .answers-list li.incorrect {
   background: var(--incorrect);
+}
+
+.answers-columns {
+  display: flex;
+  gap: 2rem;
+}
+
+.answers-columns .column {
+  flex: 1;
+}
+
+.time-chip {
+  background: var(--accent);
+  color: #fff;
+  padding: 0 6px;
+  border-radius: 12px;
+  margin-left: 8px;
+  font-size: 0.8rem;
+}
+
+.timer {
+  font-size: 2rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.progress-container {
+  width: 100%;
+  background: #555;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 10px 0;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  width: 100%;
 }
 
 .player-score {

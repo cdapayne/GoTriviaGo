@@ -12,7 +12,6 @@
   <div id="playerScore" class="player-score" style="display:none;"></div>
   <div id="submittedMsg" class="submitted-msg" style="display:none;">Question has been submitted.</div>
   <div class="container">
-    <h1>Player</h1>
     <div id="join" class="question-block">
       Room Code: <input id="room"><br>
       Name: <input id="name"><br>
@@ -21,6 +20,7 @@
     <div id="game" style="display:none; position:relative; padding-top:60px;">
       <div id="category" class="category-tag" style="left:10px; right:auto; position:fixed; display:none;"></div>
       <div id="question" class="question-block question-display"></div>
+      <div id="progress" class="progress-container" style="display:none;"><div id="progressBar" class="progress-bar"></div></div>
       <div id="options" class="options-list" style="display:none;"></div>
     </div>
     <button id="buzz" class="buzz-btn">Buzz!</button>
@@ -30,6 +30,7 @@
     const socket = io();
     let roomCode = null;
     let selectedAnswer = null;
+    let progressInterval = null;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -82,6 +83,20 @@
       buzz.dataset.mode = 'buzz';
       buzz.style.display = 'block';
       buzz.disabled = false;
+      const prog = document.getElementById('progress');
+      const bar = document.getElementById('progressBar');
+      if (q.timeLimit) {
+        prog.style.display='block';
+        const end = q.startTime + q.timeLimit;
+        clearInterval(progressInterval);
+        progressInterval = setInterval(()=>{
+          const remain = Math.max(0, end - Date.now());
+          bar.style.width = (remain / q.timeLimit * 100) + '%';
+          if (remain <= 0) clearInterval(progressInterval);
+        },100);
+      } else {
+        prog.style.display='none';
+      }
     });
 
     document.getElementById('buzz').onclick = () => {

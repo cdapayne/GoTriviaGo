@@ -21,12 +21,18 @@
         <button id="generate">Generate Questions</button>
       </div>
       <div id="categories"></div>
-      <button id="saveSetup">Save Setup</button>
+      <div>
+        <button id="saveSetup">Save Setup</button>
+        <select id="savedSetups"></select>
+      </div>
+      <label><input type="checkbox" id="randomize"> Randomize answers</label>
+      <input id="timeLimit" type="number" placeholder="Time limit (seconds)">
       <button id="nextQuestion" style="display:none;">Start Question</button>
     </div>
     <div>
       <h3>Players:</h3>
       <ul id="players"></ul>
+      <button id="toggleScores" style="display:none;">Toggle Scores</button>
     </div>
   </div>
   <div id="scorePanel" class="side-panel" style="display:none;">
@@ -52,7 +58,9 @@
       rc.style.display = 'block';
       document.getElementById('setup').style.display = 'block';
       document.getElementById('scorePanel').style.display = 'block';
+      document.getElementById('toggleScores').style.display = 'block';
       buildForm();
+      refreshSaved();
     });
 
     function buildForm(){
@@ -95,13 +103,20 @@
         }
       }
       socket.emit('adminSetup', { roomCode, categories });
+      const name = prompt('Name this setup');
+      if (name) {
+        localStorage.setItem('setup_' + name, JSON.stringify(categories));
+        refreshSaved();
+      }
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Start Question';
       btn.style.display = 'block';
     };
 
     document.getElementById('nextQuestion').onclick = () => {
-      socket.emit('adminStartQuestion', { roomCode });
+      const randomize = document.getElementById('randomize').checked;
+      const tl = parseInt(document.getElementById('timeLimit').value, 10);
+      socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl });
       document.getElementById('nextQuestion').style.display = 'none';
     };
 
@@ -137,6 +152,44 @@
       alert('Generation failed: ' + msg);
     });
 
+    function refreshSaved() {
+      const sel = document.getElementById('savedSetups');
+      sel.innerHTML = '<option value="">Load Setup</option>';
+      for (let i=0;i<localStorage.length;i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith('setup_')) {
+          const opt = document.createElement('option');
+          opt.value = key;
+          opt.textContent = key.substring(6);
+          sel.appendChild(opt);
+        }
+      }
+    }
+
+    document.getElementById('savedSetups').onchange = e => {
+      const key = e.target.value;
+      if (!key) return;
+      const data = JSON.parse(localStorage.getItem(key));
+      generatedData = data;
+      const categoriesDiv = document.getElementById('categories');
+      categoriesDiv.innerHTML = '';
+      data.forEach(cat => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'question-block';
+        catDiv.innerHTML = '<h3>'+cat.name+'</h3>';
+        cat.questions.forEach(q => {
+          const qDiv = document.createElement('div');
+          qDiv.className = 'question-block';
+          qDiv.innerHTML = '<strong>'+q.text+'</strong><ul>' + q.options.map((o,i)=>'<li'+(i===q.answer?' class="correct"':'')+'>'+o+'</li>').join('') + '</ul>';
+          catDiv.appendChild(qDiv);
+        });
+        categoriesDiv.appendChild(catDiv);
+      });
+    };
+
+    document.getElementById('toggleScores').onclick = () => {
+      document.getElementById('scorePanel').classList.toggle('collapsed');
+    };
     socket.on('players', list => {
       const ul = document.getElementById('players');
       ul.innerHTML = '';
