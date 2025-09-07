@@ -31,8 +31,128 @@ function emitScores(roomCode) {
   io.to(roomCode).emit('scores', scores);
 }
 
+function handleTimeUp(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || !room.current) return;
+  Object.values(room.players).forEach(p => {
+    if (!p.answered) {
+      p.answered = true;
+      p.answer = null;
+      p.correct = false;
+      p.time = room.timeLimit;
+    }
+  });
+  room.current = null;
+  room.questionTimer = null;
+  io.to(roomCode).emit('timeUp');
+  if (room.questionCount % 5 === 0) {
+    startMiniGame(roomCode);
+  } else if (room.remaining.length > 0 && room.lastSettings) {
+    setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
+}
+
+function startMiniGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || room.miniGame) return;
+  const countdown = 3000; // 3 second countdown
+  const duration = 10000; // 10 seconds of running
+  room.miniGame = {
+    start: Date.now() + countdown,
+    duration,
+    counts: {}
+  };
+  io.to(roomCode).emit('miniGameStart', {
+    startTime: room.miniGame.start,
+    duration,
+    countdown
+  });
+  room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), countdown + duration);
+}
+
+function endMiniGame(roomCode, forcedWinnerId = null) {
+  const room = rooms[roomCode];
+  if (!room || !room.miniGame) return;
+  const counts = room.miniGame.counts;
+  let winnerId = forcedWinnerId;
+  let max = -1;
+  if (!winnerId) {
+    for (const [id, count] of Object.entries(counts)) {
+      if (count > max) {
+        max = count;
+        winnerId = id;
+      }
+    }
+  } else {
+    max = counts[winnerId] || 0;
+  }
+  let winner = null;
+  if (winnerId && room.players[winnerId]) {
+    room.players[winnerId].score += 1;
+    winner = { id: winnerId, name: room.players[winnerId].name, count: max };
+  }
+  emitScores(roomCode);
+  io.to(roomCode).emit('miniGameEnd', { winner });
+  clearTimeout(room.miniGameTimer);
+  room.miniGame = null;
+  room.miniGameTimer = null;
+  if (room.remaining.length > 0 && room.lastSettings) {
+    setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
+}
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+function startQuestion(roomCode, randomize, timeLimit) {
+  const room = rooms[roomCode];
+  if (!room || room.remaining.length === 0) {
+    console.error(`startQuestion: room ${roomCode} not found or no questions remaining`);
+    return;
+  }
+  room.lastSettings = { randomize, timeLimit };
+  const idx = Math.floor(Math.random() * room.remaining.length);
+  const sel = room.remaining.splice(idx, 1)[0];
+  const q = room.categories[sel.ci].questions[sel.qi];
+
+  let options = [...q.options];
+  let answer = q.answer;
+  if (randomize) {
+    const arr = options.map((o, i) => ({ o, i }));
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    options = arr.map(a => a.o);
+    answer = arr.findIndex(a => a.i === q.answer);
+  }
+
+  room.current = { ci: sel.ci, qi: sel.qi, options, answer };
+  room.questionStart = Date.now();
+  room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+  if (room.questionTimer) clearTimeout(room.questionTimer);
+  if (room.timeLimit) {
+    room.questionTimer = setTimeout(() => handleTimeUp(roomCode), room.timeLimit);
+  } else {
+    room.questionTimer = null;
+  }
+  room.questionCount = (room.questionCount || 0) + 1;
+
+  Object.values(room.players).forEach(p => {
+    p.answered = false;
+    p.answer = null;
+    p.correct = null;
+    p.time = null;
+  });
+
+  io.to(roomCode).emit('question', {
+    category: room.categories[sel.ci].name,
+    text: q.text,
+    options,
+    timeLimit: room.timeLimit,
+    startTime: room.questionStart
+  });
 }
 
 io.on('connection', socket => {
@@ -46,7 +166,10 @@ io.on('connection', socket => {
       players: {},
       categories: [],
       remaining: [],
-      current: null
+      current: null,
+      questionCount: 0,
+      miniGame: null,
+      miniGameTimer: null
     };
     socket.join(code);
     socket.emit('roomCreated', code);
@@ -120,45 +243,7 @@ io.on('connection', socket => {
   });
 
   socket.on('adminStartQuestion', ({ roomCode, randomize, timeLimit }) => {
-    const room = rooms[roomCode];
-    if (!room || room.remaining.length === 0) {
-      console.error(`adminStartQuestion: room ${roomCode} not found or no questions remaining`);
-      return;
-    }
-    const idx = Math.floor(Math.random() * room.remaining.length);
-    const sel = room.remaining.splice(idx, 1)[0];
-    const q = room.categories[sel.ci].questions[sel.qi];
-
-    let options = [...q.options];
-    let answer = q.answer;
-    if (randomize) {
-      const arr = options.map((o, i) => ({ o, i }));
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      options = arr.map(a => a.o);
-      answer = arr.findIndex(a => a.i === q.answer);
-    }
-
-    room.current = { ci: sel.ci, qi: sel.qi, options, answer };
-    room.questionStart = Date.now();
-    room.timeLimit = timeLimit ? timeLimit * 1000 : null;
-
-    Object.values(room.players).forEach(p => {
-      p.answered = false;
-      p.answer = null;
-      p.correct = null;
-      p.time = null;
-    });
-
-    io.to(roomCode).emit('question', {
-      category: room.categories[sel.ci].name,
-      text: q.text,
-      options,
-      timeLimit: room.timeLimit,
-      startTime: room.questionStart
-    });
+    startQuestion(roomCode, randomize, timeLimit);
   });
 
   socket.on('playerJoin', ({ roomCode, name }) => {
@@ -242,6 +327,10 @@ io.on('connection', socket => {
       console.warn(`playerAnswer: player ${socket.id} already answered`);
       return;
     }
+    if (room.timeLimit && Date.now() - room.questionStart > room.timeLimit) {
+      console.warn('playerAnswer: answer after time up');
+      return;
+    }
     const correct = answer === room.current.answer;
     player.answered = true;
     player.answer = answer;
@@ -252,7 +341,24 @@ io.on('connection', socket => {
     emitScores(roomCode);
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
-      io.to(room.admin).emit('allAnswered');
+      if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
+      room.current = null;
+      if (room.questionCount % 5 === 0) {
+        startMiniGame(roomCode);
+      } else if (room.remaining.length > 0 && room.lastSettings) {
+        setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+      }
+    }
+  });
+
+  socket.on('miniGameTap', ({ roomCode }) => {
+    const room = rooms[roomCode];
+    if (!room || !room.miniGame) return;
+    const newCount = (room.miniGame.counts[socket.id] || 0) + 1;
+    room.miniGame.counts[socket.id] = newCount;
+    io.to(socket.id).emit('miniGameDistance', { distance: newCount });
+    if (newCount >= 100) {
+      endMiniGame(roomCode, socket.id);
     }
   });
 
@@ -260,11 +366,15 @@ io.on('connection', socket => {
     for (const [code, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
+        if (room.miniGame && room.miniGame.counts) {
+          delete room.miniGame.counts[socket.id];
+        }
         emitPlayers(code);
         emitScores(code);
       }
       if (room.admin === socket.id) {
         io.to(code).emit('roomClosed');
+        if (room.miniGameTimer) clearTimeout(room.miniGameTimer);
         delete rooms[code];
       }
     }
