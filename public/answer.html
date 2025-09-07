@@ -8,14 +8,20 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
   <div class="container">
     <h1>Answer Screen</h1>
     <div id="join" class="question-block">
       Room Code: <input id="room"><button id="joinBtn">Join</button>
     </div>
-    <div id="display" style="display:none;">
-      <div id="question" class="question-block"></div>
-      <ul id="answers"></ul>
+  </div>
+  <div id="display" class="presentation" style="display:none;">
+    <div id="catDisplay" class="category-tag" style="left:10px; right:auto;"></div>
+    <div id="question" class="question-display"></div>
+    <ul id="answers" class="answers-list"></ul>
+    <div id="scorePanel" class="side-panel">
+      <h3>Scores</h3>
+      <ul id="scoreList"></ul>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
@@ -30,10 +36,14 @@
       socket.emit('viewerJoin', { roomCode });
       document.getElementById('join').style.display='none';
       document.getElementById('display').style.display='block';
+      const rc = document.getElementById('roomCodeDisplay');
+      rc.textContent = roomCode;
+      rc.style.display = 'block';
     };
 
     socket.on('question', q => {
-      document.getElementById('question').textContent = q.category + ': ' + q.text;
+      document.getElementById('catDisplay').textContent = q.category;
+      document.getElementById('question').textContent = q.text;
       document.getElementById('answers').innerHTML='';
       currentOptions = q.options;
     });
@@ -41,9 +51,20 @@
     socket.on('playerAnswered', data => {
       const li = document.createElement('li');
       const text = currentOptions[data.answer] || letters[data.answer];
-      li.textContent = data.name + ': ' + text;
+      const secs = (data.time/1000).toFixed(2) + 's';
+      li.textContent = data.name + ': ' + text + ' (' + secs + ')';
       li.className = data.correct ? 'correct' : 'incorrect';
       document.getElementById('answers').appendChild(li);
+    });
+
+    socket.on('scores', list => {
+      const ul = document.getElementById('scoreList');
+      ul.innerHTML = '';
+      list.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s.name + ': ' + s.score;
+        ul.appendChild(li);
+      });
     });
 
     socket.on('roomClosed', () => {

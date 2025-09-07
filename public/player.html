@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
   <div class="container">
     <h1>Player</h1>
     <div id="join" class="question-block">
@@ -15,16 +16,18 @@
       Name: <input id="name"><br>
       <button id="joinBtn">Join</button>
     </div>
-    <div id="game" style="display:none;">
-      <div id="question" class="question-block"></div>
-      <button id="buzz">Buzz!</button>
-      <div id="options" style="display:none;"></div>
+    <div id="game" style="display:none; position:relative;">
+      <div id="category" class="category-tag"></div>
+      <div id="question" class="question-block question-display"></div>
+      <div id="options" class="options-list" style="display:none;"></div>
     </div>
+    <button id="buzz" class="buzz-btn">Buzz!</button>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let roomCode = null;
+    let selectedAnswer = null;
 
     document.getElementById('joinBtn').onclick = () => {
       roomCode = document.getElementById('room').value.toUpperCase();
@@ -35,33 +38,60 @@
     socket.on('joined', code => {
       document.getElementById('join').style.display='none';
       document.getElementById('game').style.display='block';
+      const rc = document.getElementById('roomCodeDisplay');
+      rc.textContent = code;
+      rc.style.display = 'block';
     });
 
     socket.on('question', q => {
-      document.getElementById('question').textContent = q.category + ': ' + q.text;
-      document.getElementById('options').style.display='none';
-      document.getElementById('buzz').style.display='inline';
+      selectedAnswer = null;
+      document.getElementById('category').textContent = q.category;
+      document.getElementById('question').textContent = q.text;
       const optsDiv = document.getElementById('options');
+      optsDiv.style.display='none';
       optsDiv.innerHTML='';
       q.options.forEach((opt, idx) => {
         const btn = document.createElement('button');
         btn.textContent = opt;
         btn.className='option';
         btn.onclick = () => {
-          socket.emit('playerAnswer', { roomCode, answer: idx });
-          document.getElementById('options').style.display='none';
+          document.querySelectorAll('#options .option').forEach(b=>b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedAnswer = idx;
+          const buzz = document.getElementById('buzz');
+          buzz.disabled = false;
         };
         optsDiv.appendChild(btn);
       });
+      const buzz = document.getElementById('buzz');
+      buzz.textContent = 'Buzz!';
+      buzz.dataset.mode = 'buzz';
+      buzz.style.display = 'block';
+      buzz.disabled = false;
     });
 
     document.getElementById('buzz').onclick = () => {
-      socket.emit('playerBuzz', { roomCode });
+      const btn = document.getElementById('buzz');
+      if (btn.dataset.mode === 'buzz') {
+        socket.emit('playerBuzz', { roomCode });
+      } else if (btn.dataset.mode === 'submit' && selectedAnswer !== null) {
+        socket.emit('playerAnswer', { roomCode, answer: selectedAnswer });
+        document.getElementById('options').style.display='none';
+        btn.style.display='none';
+      }
     };
 
     socket.on('buzzAccepted', () => {
-      document.getElementById('buzz').style.display='none';
+      const buzz = document.getElementById('buzz');
+      buzz.textContent = 'Submit';
+      buzz.dataset.mode = 'submit';
+      buzz.disabled = true;
       document.getElementById('options').style.display='block';
+    });
+
+    socket.on('removed', () => {
+      alert('You have been removed from the room');
+      location.reload();
     });
 
     socket.on('roomClosed', () => {

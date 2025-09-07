@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+  <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
   <div class="container">
     <h1>Admin</h1>
     <button id="createRoom">Create Room</button>
@@ -21,12 +22,17 @@
       </div>
       <div id="categories"></div>
       <button id="saveSetup">Save Setup</button>
-      <button id="startQuestion">Start Question</button>
+      <button id="nextQuestion" style="display:none;">Start Question</button>
     </div>
     <div>
       <h3>Players:</h3>
       <ul id="players"></ul>
     </div>
+  </div>
+  <div id="scorePanel" class="side-panel" style="display:none;">
+    <h3>Scores</h3>
+    <div id="leader"></div>
+    <ul id="scoreList"></ul>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -41,7 +47,11 @@
     socket.on('roomCreated', code => {
       roomCode = code;
       document.getElementById('roomInfo').textContent = 'Room Code: ' + code;
+      const rc = document.getElementById('roomCodeDisplay');
+      rc.textContent = code;
+      rc.style.display = 'block';
       document.getElementById('setup').style.display = 'block';
+      document.getElementById('scorePanel').style.display = 'block';
       buildForm();
     });
 
@@ -85,10 +95,14 @@
         }
       }
       socket.emit('adminSetup', { roomCode, categories });
+      const btn = document.getElementById('nextQuestion');
+      btn.textContent = 'Start Question';
+      btn.style.display = 'block';
     };
 
-    document.getElementById('startQuestion').onclick = () => {
+    document.getElementById('nextQuestion').onclick = () => {
       socket.emit('adminStartQuestion', { roomCode });
+      document.getElementById('nextQuestion').style.display = 'none';
     };
 
     document.getElementById('generate').onclick = () => {
@@ -126,11 +140,32 @@
     socket.on('players', list => {
       const ul = document.getElementById('players');
       ul.innerHTML = '';
-      list.forEach(n => {
+      list.forEach(p => {
         const li = document.createElement('li');
-        li.textContent = n;
+        li.textContent = p.name + ' ';
+        const btn = document.createElement('button');
+        btn.textContent = 'Remove';
+        btn.onclick = () => socket.emit('adminRemovePlayer', { roomCode, playerId: p.id });
+        li.appendChild(btn);
         ul.appendChild(li);
       });
+    });
+
+    socket.on('scores', list => {
+      const ul = document.getElementById('scoreList');
+      ul.innerHTML = '';
+      list.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s.name + ': ' + s.score;
+        ul.appendChild(li);
+      });
+      document.getElementById('leader').textContent = list.length ? ('Leader: ' + list[0].name) : '';
+    });
+
+    socket.on('allAnswered', () => {
+      const btn = document.getElementById('nextQuestion');
+      btn.textContent = 'Next Question';
+      btn.style.display = 'block';
     });
 
     socket.on('roomClosed', () => {
