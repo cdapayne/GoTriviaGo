@@ -107,6 +107,7 @@ io.on('connection', socket => {
     const idx = Math.floor(Math.random() * room.remaining.length);
     const sel = room.remaining.splice(idx, 1)[0];
     room.current = sel;
+    room.questionStart = Date.now();
     const q = room.categories[sel.ci].questions[sel.qi];
     Object.values(room.players).forEach(p => {
       p.answered = false;
@@ -130,11 +131,14 @@ io.on('connection', socket => {
     socket.join(roomCode);
     socket.emit('joined', roomCode);
     io.to(roomCode).emit('players', Object.values(room.players).map(p => p.name));
+    io.to(roomCode).emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
   });
 
   socket.on('viewerJoin', ({ roomCode }) => {
     if (rooms[roomCode]) {
       socket.join(roomCode);
+      const room = rooms[roomCode];
+      socket.emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
     } else {
       console.error(`viewerJoin: room ${roomCode} not found`);
     }
@@ -165,7 +169,9 @@ io.on('connection', socket => {
     player.answer = answer;
     player.correct = correct;
     if (correct) player.score += 1;
-    io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct });
+    const time = room.questionStart ? Date.now() - room.questionStart : 0;
+    io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct, time });
+    io.to(roomCode).emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
   });
 
   socket.on('disconnect', () => {
@@ -173,6 +179,7 @@ io.on('connection', socket => {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
         io.to(code).emit('players', Object.values(room.players).map(p => p.name));
+        io.to(code).emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
       }
       if (room.admin === socket.id) {
         io.to(code).emit('roomClosed');

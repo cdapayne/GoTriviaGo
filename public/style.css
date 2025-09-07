@@ -38,3 +38,104 @@ input, textarea {
 @media (max-width: 600px) {
   body { padding: 0.5rem; }
 }
+
+/* Answer screen styles */
+body.answer-screen {
+  background: #121212;
+  color: #fff;
+  height: 100vh;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'Trebuchet MS', sans-serif;
+}
+
+.answer-display {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.main-area {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-label {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background: rgba(255,255,255,0.1);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 1.5rem;
+}
+
+.question-text {
+  font-size: 3rem;
+  font-weight: bold;
+  text-align: center;
+  max-width: 80%;
+}
+
+.answers-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 2rem;
+  width: 80%;
+  display: flex;
+  flex-direction: column;
+}
+
+.answers-list li {
+  margin: 0.5rem 0;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 1.25rem;
+  color: #fff;
+  max-width: 60%;
+}
+
+.answers-list li.correct {
+  background: #1e8e3e;
+  align-self: flex-end;
+}
+
+.answers-list li.incorrect {
+  background: #b3261e;
+  align-self: flex-start;
+}
+
+.scoreboard {
+  width: 250px;
+  background: rgba(255,255,255,0.1);
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+.scoreboard h2 {
+  text-align: center;
+  margin-top: 0;
+}
+
+.scoreboard ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.scoreboard li {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+.join-block {
+  background: rgba(0,0,0,0.8);
+  padding: 1rem;
+  border-radius: 8px;
+}
