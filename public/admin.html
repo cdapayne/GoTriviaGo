@@ -78,8 +78,37 @@
           qDiv.innerHTML = 'Question: <input class="qtext"><br>Option A:<input class="opt" data-idx="0"><br>Option B:<input class="opt" data-idx="1"><br>Option C:<input class="opt" data-idx="2"><br>Option D:<input class="opt" data-idx="3"><br>Correct:<select class="correct"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>';
           qsDiv.appendChild(qDiv);
         }
-        categoriesDiv.appendChild(catDiv);
+      categoriesDiv.appendChild(catDiv);
       }
+    }
+
+    function renderEditable(data) {
+      const categoriesDiv = document.getElementById('categories');
+      categoriesDiv.innerHTML = '';
+      data.forEach((cat, ci) => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'question-block';
+        catDiv.innerHTML = '<h3>'+cat.name+'</h3>';
+        cat.questions.forEach((q, qi) => {
+          const qDiv = document.createElement('div');
+          qDiv.className = 'question-block';
+          qDiv.innerHTML = '<strong>'+q.text+'</strong> <button class="editQ">Edit</button><ul>' + q.options.map((o,i)=>'<li'+(i===q.answer?' class="correct"':'')+'>'+o+'</li>').join('') + '</ul>';
+          qDiv.querySelector('.editQ').onclick = () => {
+            qDiv.innerHTML = 'Question: <input class="qtext" value="'+q.text+'"><br>' +
+              q.options.map((o,i)=>'Option '+String.fromCharCode(65+i)+':<input class="opt" data-idx="'+i+'" value="'+o+'"><br>').join('') +
+              'Correct:<select class="correct">'+ q.options.map((o,i)=>'<option value="'+i+'"'+(i===q.answer?' selected':'')+'>'+String.fromCharCode(65+i)+'</option>').join('') + '</select><br><button class="saveQ">Save</button>';
+            qDiv.querySelector('.saveQ').onclick = () => {
+              q.text = qDiv.querySelector('.qtext').value;
+              q.options = Array.from(qDiv.querySelectorAll('.opt')).map(i=>i.value);
+              q.answer = parseInt(qDiv.querySelector('.correct').value,10);
+              renderEditable(data);
+              socket.emit('adminSetup', { roomCode, categories: data });
+            };
+          };
+          catDiv.appendChild(qDiv);
+        });
+        categoriesDiv.appendChild(catDiv);
+      });
     }
 
     document.getElementById('saveSetup').onclick = () => {
@@ -132,20 +161,7 @@
 
     socket.on('generatedQuestions', data => {
       generatedData = data;
-      const categoriesDiv = document.getElementById('categories');
-      categoriesDiv.innerHTML = '';
-      data.forEach(cat => {
-        const catDiv = document.createElement('div');
-        catDiv.className = 'question-block';
-        catDiv.innerHTML = '<h3>'+cat.name+'</h3>';
-        cat.questions.forEach(q => {
-          const qDiv = document.createElement('div');
-          qDiv.className = 'question-block';
-          qDiv.innerHTML = '<strong>'+q.text+'</strong><ul>' + q.options.map((o,i)=>'<li'+(i===q.answer?' class="correct"':'')+'>'+o+'</li>').join('') + '</ul>';
-          catDiv.appendChild(qDiv);
-        });
-        categoriesDiv.appendChild(catDiv);
-      });
+      renderEditable(generatedData);
     });
 
     socket.on('generationError', msg => {
@@ -171,20 +187,7 @@
       if (!key) return;
       const data = JSON.parse(localStorage.getItem(key));
       generatedData = data;
-      const categoriesDiv = document.getElementById('categories');
-      categoriesDiv.innerHTML = '';
-      data.forEach(cat => {
-        const catDiv = document.createElement('div');
-        catDiv.className = 'question-block';
-        catDiv.innerHTML = '<h3>'+cat.name+'</h3>';
-        cat.questions.forEach(q => {
-          const qDiv = document.createElement('div');
-          qDiv.className = 'question-block';
-          qDiv.innerHTML = '<strong>'+q.text+'</strong><ul>' + q.options.map((o,i)=>'<li'+(i===q.answer?' class="correct"':'')+'>'+o+'</li>').join('') + '</ul>';
-          catDiv.appendChild(qDiv);
-        });
-        categoriesDiv.appendChild(catDiv);
-      });
+      renderEditable(generatedData);
       socket.emit('adminSetup', { roomCode, categories: data });
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Start Question';

@@ -31,10 +31,30 @@ function emitScores(roomCode) {
   io.to(roomCode).emit('scores', scores);
 }
 
+function handleTimeUp(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || !room.current) return;
+  Object.values(room.players).forEach(p => {
+    if (!p.answered) {
+      p.answered = true;
+      p.answer = null;
+      p.correct = false;
+      p.time = room.timeLimit;
+    }
+  });
+  room.questionTimer = null;
+  io.to(roomCode).emit('timeUp');
+  if (room.questionCount % 5 === 0) {
+    startMiniGame(roomCode);
+  } else if (room.remaining.length > 0 && room.lastSettings) {
+    setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
+}
+
 function startMiniGame(roomCode) {
   const room = rooms[roomCode];
   if (!room) return;
-  const duration = 5000; // 5 seconds
+  const duration = 10000; // 10 seconds
   room.miniGame = {
     start: Date.now(),
     duration,
@@ -104,6 +124,12 @@ function startQuestion(roomCode, randomize, timeLimit) {
   room.current = { ci: sel.ci, qi: sel.qi, options, answer };
   room.questionStart = Date.now();
   room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+  if (room.questionTimer) clearTimeout(room.questionTimer);
+  if (room.timeLimit) {
+    room.questionTimer = setTimeout(() => handleTimeUp(roomCode), room.timeLimit);
+  } else {
+    room.questionTimer = null;
+  }
   room.questionCount = (room.questionCount || 0) + 1;
 
   Object.values(room.players).forEach(p => {
@@ -294,6 +320,10 @@ io.on('connection', socket => {
       console.warn(`playerAnswer: player ${socket.id} already answered`);
       return;
     }
+    if (room.timeLimit && Date.now() - room.questionStart > room.timeLimit) {
+      console.warn('playerAnswer: answer after time up');
+      return;
+    }
     const correct = answer === room.current.answer;
     player.answered = true;
     player.answer = answer;
@@ -304,6 +334,7 @@ io.on('connection', socket => {
     emitScores(roomCode);
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
+      if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
       if (room.questionCount % 5 === 0) {
         startMiniGame(roomCode);
       } else if (room.remaining.length > 0 && room.lastSettings) {

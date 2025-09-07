@@ -126,7 +126,10 @@
         progressInterval = setInterval(()=>{
           const remain = Math.max(0, end - Date.now());
           bar.style.width = (remain / duration * 100) + '%';
-          if (remain <= 0) clearInterval(progressInterval);
+          if (remain <= 0) {
+            clearInterval(progressInterval);
+            disableAnswering();
+          }
         },100);
       } else {
         prog.style.display='none';
@@ -213,6 +216,23 @@
           document.getElementById('standingsPanel').style.display = 'block';
         }
       }, 2000);
+    });
+
+    function disableAnswering() {
+      const optsDiv = document.getElementById('options');
+      optsDiv.style.pointerEvents = 'none';
+      const buzz = document.getElementById('buzz');
+      buzz.disabled = true;
+      if (!hasAnswered) {
+        document.getElementById('submittedMsg').textContent = "Time's up!";
+        document.getElementById('submittedMsg').style.display = 'block';
+        hasAnswered = true;
+        document.getElementById('standingsPanel').style.display = 'block';
+      }
+    }
+
+    socket.on('timeUp', () => {
+      disableAnswering();
     });
   </script>
 </body>

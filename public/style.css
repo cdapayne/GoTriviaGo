@@ -104,8 +104,10 @@ input, textarea, select {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  width: 80%;
-  max-width: 400px;
+  width: 90%;
+  max-width: none;
+  font-size: 2.5rem;
+  padding: 1.5rem 0;
 }
 
 .category-tag {
@@ -119,18 +121,23 @@ input, textarea, select {
 }
 
 .question-display {
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: bold;
   text-align: center;
   background: rgba(255,255,255,0.1);
   border-radius: 8px;
+  margin: 1rem auto;
 }
 
 .presentation .question-display {
-  font-size: 4rem;
-  padding: 0.5rem 1rem;
+  font-size: 5rem;
+  padding: 1rem 2rem;
   display: inline-block;
-  margin-top: 1rem;
+  margin-top: 2rem;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  -webkit-background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px rgba(10,132,255,0.5);
 }
 
 .options-list .option {
