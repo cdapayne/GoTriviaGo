@@ -9,6 +9,8 @@ const io = new Server(server);
 app.use(express.static('public'));
 
 const rooms = {};
+const MAX_CONNECTIONS = parseInt(process.env.MAX_CONNECTIONS, 10) || 100;
+let connectionCount = 0;
 
 function getScores(room) {
   const scores = Object.entries(room.players).map(([id, p]) => ({ id, name: p.name, score: p.score }));
@@ -156,6 +158,12 @@ function startQuestion(roomCode, randomize, timeLimit) {
 }
 
 io.on('connection', socket => {
+  if (connectionCount >= MAX_CONNECTIONS) {
+    socket.emit('serverFull');
+    socket.disconnect(true);
+    return;
+  }
+  connectionCount++;
   socket.on('adminCreateRoom', () => {
     let code;
     do {
@@ -369,6 +377,7 @@ io.on('connection', socket => {
   });
 
   socket.on('disconnect', () => {
+    connectionCount = Math.max(0, connectionCount - 1);
     for (const [code, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
