@@ -44,6 +44,41 @@ io.on('connection', socket => {
     io.to(roomCode).emit('setupComplete');
   });
 
+  socket.on('adminGenerate', async ({ roomCode, prompt, apiKey }) => {
+    const room = rooms[roomCode];
+    if (!room) return;
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: 'You are a trivia question generator. Produce JSON with 4 categories, each with 5 questions. Format: [{"name":"<category>","questions":[{"text":"<question>","options":["A","B","C","D"],"answer":0}]}]' },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0.7
+        })
+      });
+      const data = await response.json();
+      const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      const categories = JSON.parse(text);
+      room.categories = categories;
+      room.remaining = [];
+      categories.forEach((cat, ci) => {
+        cat.questions.forEach((q, qi) => {
+          room.remaining.push({ ci, qi });
+        });
+      });
+      io.to(socket.id).emit('generatedQuestions', categories);
+    } catch (err) {
+      io.to(socket.id).emit('generationError', err.message);
+    }
+  });
+
   socket.on('adminStartQuestion', ({ roomCode }) => {
     const room = rooms[roomCode];
     if (!room || room.remaining.length === 0) return;

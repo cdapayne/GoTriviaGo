@@ -2,24 +2,30 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin</title>
-  <style>
-    .question-block { border:1px solid #ccc; margin:5px; padding:5px; }
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>Admin</h1>
-  <button id="createRoom">Create Room</button>
-  <div id="roomInfo"></div>
-  <div id="setup" style="display:none;">
-    <h2>Setup Categories and Questions</h2>
-    <div id="categories"></div>
-    <button id="saveSetup">Save Setup</button>
-    <button id="startQuestion">Start Question</button>
-  </div>
-  <div>
-    <h3>Players:</h3>
-    <ul id="players"></ul>
+  <div class="container">
+    <h1>Admin</h1>
+    <button id="createRoom">Create Room</button>
+    <div id="roomInfo"></div>
+    <div id="setup" style="display:none;">
+      <h2>Setup Categories and Questions</h2>
+      <div id="aiSetup" class="question-block">
+        <input id="apiKey" placeholder="OpenAI API Key">
+        <textarea id="prompt" placeholder="Describe the trivia you want"></textarea>
+        <button id="generate">Generate Questions</button>
+      </div>
+      <div id="categories"></div>
+      <button id="saveSetup">Save Setup</button>
+      <button id="startQuestion">Start Question</button>
+    </div>
+    <div>
+      <h3>Players:</h3>
+      <ul id="players"></ul>
+    </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -76,6 +82,37 @@
     document.getElementById('startQuestion').onclick = () => {
       socket.emit('adminStartQuestion', { roomCode });
     };
+
+    document.getElementById('generate').onclick = () => {
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const prompt = document.getElementById('prompt').value.trim();
+      if (!apiKey || !prompt) {
+        alert('API key and prompt required');
+        return;
+      }
+      socket.emit('adminGenerate', { roomCode, apiKey, prompt });
+    };
+
+    socket.on('generatedQuestions', data => {
+      const categoriesDiv = document.getElementById('categories');
+      categoriesDiv.innerHTML = '';
+      data.forEach(cat => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'question-block';
+        catDiv.innerHTML = '<h3>'+cat.name+'</h3>';
+        cat.questions.forEach(q => {
+          const qDiv = document.createElement('div');
+          qDiv.className = 'question-block';
+          qDiv.innerHTML = '<strong>'+q.text+'</strong><ul>' + q.options.map((o,i)=>'<li'+(i===q.answer?' class="correct"':'')+'>'+o+'</li>').join('') + '</ul>';
+          catDiv.appendChild(qDiv);
+        });
+        categoriesDiv.appendChild(catDiv);
+      });
+    });
+
+    socket.on('generationError', msg => {
+      alert('Generation failed: ' + msg);
+    });
 
     socket.on('players', list => {
       const ul = document.getElementById('players');

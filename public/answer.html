@@ -2,20 +2,20 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Answer Screen</title>
-  <style>
-    .correct { color: green; }
-    .incorrect { color: red; }
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>Answer Screen</h1>
-  <div id="join">
-    Room Code: <input id="room"><button id="joinBtn">Join</button>
-  </div>
-  <div id="display" style="display:none;">
-    <div id="question"></div>
-    <ul id="answers"></ul>
+  <div class="container">
+    <h1>Answer Screen</h1>
+    <div id="join" class="question-block">
+      Room Code: <input id="room"><button id="joinBtn">Join</button>
+    </div>
+    <div id="display" style="display:none;">
+      <div id="question" class="question-block"></div>
+      <ul id="answers"></ul>
+    </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>

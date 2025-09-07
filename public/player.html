@@ -2,22 +2,23 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Player</title>
-  <style>
-    .option { display:block; margin:5px 0; }
-  </style>
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <h1>Player</h1>
-  <div id="join">
-    Room Code: <input id="room"><br>
-    Name: <input id="name"><br>
-    <button id="joinBtn">Join</button>
-  </div>
-  <div id="game" style="display:none;">
-    <div id="question"></div>
-    <button id="buzz">Buzz!</button>
-    <div id="options" style="display:none;"></div>
+  <div class="container">
+    <h1>Player</h1>
+    <div id="join" class="question-block">
+      Room Code: <input id="room"><br>
+      Name: <input id="name"><br>
+      <button id="joinBtn">Join</button>
+    </div>
+    <div id="game" style="display:none;">
+      <div id="question" class="question-block"></div>
+      <button id="buzz">Buzz!</button>
+      <div id="options" style="display:none;"></div>
+    </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
