@@ -70,8 +70,20 @@ io.on('connection', socket => {
         })
       });
       const data = await response.json();
-      const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      const categories = JSON.parse(text);
+      let text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!text) throw new Error('No content returned');
+      text = text.trim();
+      if (text.startsWith('```')) {
+        text = text.replace(/^```(?:json)?\n/, '').replace(/```$/, '').trim();
+      }
+      let categories;
+      try {
+        categories = JSON.parse(text);
+      } catch (parseErr) {
+        console.error('adminGenerate parse error:', parseErr, text);
+        io.to(socket.id).emit('generationError', 'Invalid AI response format');
+        return;
+      }
       room.categories = categories;
       room.remaining = [];
       categories.forEach((cat, ci) => {
