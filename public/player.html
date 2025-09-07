@@ -9,6 +9,8 @@
 </head>
 <body>
   <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
+  <div id="playerScore" class="player-score" style="display:none;"></div>
+  <div id="submittedMsg" class="submitted-msg" style="display:none;">Question has been submitted.</div>
   <div class="container">
     <h1>Player</h1>
     <div id="join" class="question-block">
@@ -16,8 +18,8 @@
       Name: <input id="name"><br>
       <button id="joinBtn">Join</button>
     </div>
-    <div id="game" style="display:none; position:relative;">
-      <div id="category" class="category-tag"></div>
+    <div id="game" style="display:none; position:relative; padding-top:60px;">
+      <div id="category" class="category-tag" style="left:10px; right:auto; position:fixed; display:none;"></div>
       <div id="question" class="question-block question-display"></div>
       <div id="options" class="options-list" style="display:none;"></div>
     </div>
@@ -28,6 +30,15 @@
     const socket = io();
     let roomCode = null;
     let selectedAnswer = null;
+
+    socket.on('scores', list => {
+      const me = list.find(s => s.id === socket.id);
+      if (me) {
+        const sd = document.getElementById('playerScore');
+        sd.textContent = 'Score: ' + me.score;
+        sd.style.display = 'block';
+      }
+    });
 
     document.getElementById('joinBtn').onclick = () => {
       roomCode = document.getElementById('room').value.toUpperCase();
@@ -45,8 +56,11 @@
 
     socket.on('question', q => {
       selectedAnswer = null;
-      document.getElementById('category').textContent = q.category;
+      const cat = document.getElementById('category');
+      cat.textContent = q.category;
+      cat.style.display = 'block';
       document.getElementById('question').textContent = q.text;
+      document.getElementById('submittedMsg').style.display = 'none';
       const optsDiv = document.getElementById('options');
       optsDiv.style.display='none';
       optsDiv.innerHTML='';
@@ -78,6 +92,7 @@
         socket.emit('playerAnswer', { roomCode, answer: selectedAnswer });
         document.getElementById('options').style.display='none';
         btn.style.display='none';
+        document.getElementById('submittedMsg').style.display = 'block';
       }
     };
 
