@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Answer Screen</title>
+  <style>
+    .correct { color: green; }
+    .incorrect { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Answer Screen</h1>
+  <div id="join">
+    Room Code: <input id="room"><button id="joinBtn">Join</button>
+  </div>
+  <div id="display" style="display:none;">
+    <div id="question"></div>
+    <ul id="answers"></ul>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const letters = ['A','B','C','D'];
+    let roomCode = null;
+    let currentOptions = [];
+
+    document.getElementById('joinBtn').onclick = () => {
+      roomCode = document.getElementById('room').value.toUpperCase();
+      socket.emit('viewerJoin', { roomCode });
+      document.getElementById('join').style.display='none';
+      document.getElementById('display').style.display='block';
+    };
+
+    socket.on('question', q => {
+      document.getElementById('question').textContent = q.category + ': ' + q.text;
+      document.getElementById('answers').innerHTML='';
+      currentOptions = q.options;
+    });
+
+    socket.on('playerAnswered', data => {
+      const li = document.createElement('li');
+      const text = currentOptions[data.answer] || letters[data.answer];
+      li.textContent = data.name + ': ' + text;
+      li.className = data.correct ? 'correct' : 'incorrect';
+      document.getElementById('answers').appendChild(li);
+    });
+
+    socket.on('roomClosed', () => {
+      alert('Room closed');
+    });
+  </script>
+</body>
+</html>

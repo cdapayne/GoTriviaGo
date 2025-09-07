@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Admin</title>
+  <style>
+    .question-block { border:1px solid #ccc; margin:5px; padding:5px; }
+  </style>
+</head>
+<body>
+  <h1>Admin</h1>
+  <button id="createRoom">Create Room</button>
+  <div id="roomInfo"></div>
+  <div id="setup" style="display:none;">
+    <h2>Setup Categories and Questions</h2>
+    <div id="categories"></div>
+    <button id="saveSetup">Save Setup</button>
+    <button id="startQuestion">Start Question</button>
+  </div>
+  <div>
+    <h3>Players:</h3>
+    <ul id="players"></ul>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let roomCode = null;
+
+    document.getElementById('createRoom').onclick = () => {
+      socket.emit('adminCreateRoom');
+    };
+
+    socket.on('roomCreated', code => {
+      roomCode = code;
+      document.getElementById('roomInfo').textContent = 'Room Code: ' + code;
+      document.getElementById('setup').style.display = 'block';
+      buildForm();
+    });
+
+    function buildForm(){
+      const categoriesDiv = document.getElementById('categories');
+      categoriesDiv.innerHTML = '';
+      for (let c=0;c<4;c++){
+        const catDiv = document.createElement('div');
+        catDiv.className = 'question-block';
+        catDiv.innerHTML = '<h3>Category '+(c+1)+'</h3><input placeholder="Category name"><div class="qs"></div>';
+        const qsDiv = catDiv.querySelector('.qs');
+        for (let q=0;q<5;q++){
+          const qDiv = document.createElement('div');
+          qDiv.className='question-block';
+          qDiv.innerHTML = 'Question: <input class="qtext"><br>Option A:<input class="opt" data-idx="0"><br>Option B:<input class="opt" data-idx="1"><br>Option C:<input class="opt" data-idx="2"><br>Option D:<input class="opt" data-idx="3"><br>Correct:<select class="correct"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select>';
+          qsDiv.appendChild(qDiv);
+        }
+        categoriesDiv.appendChild(catDiv);
+      }
+    }
+
+    document.getElementById('saveSetup').onclick = () => {
+      const categories = [];
+      const cats = document.getElementById('categories').children;
+      for (let i=0;i<cats.length;i++){
+        const name = cats[i].querySelector('input').value || 'Category '+(i+1);
+        const qs = [];
+        const qDivs = cats[i].querySelectorAll('.qs .question-block');
+        qDivs.forEach(div => {
+          const text = div.querySelector('.qtext').value;
+          const opts = Array.from(div.querySelectorAll('.opt')).map(i=>i.value);
+          const ans = parseInt(div.querySelector('.correct').value,10);
+          qs.push({ text, options: opts, answer: ans });
+        });
+        categories.push({ name, questions: qs });
+      }
+      socket.emit('adminSetup', { roomCode, categories });
+    };
+
+    document.getElementById('startQuestion').onclick = () => {
+      socket.emit('adminStartQuestion', { roomCode });
+    };
+
+    socket.on('players', list => {
+      const ul = document.getElementById('players');
+      ul.innerHTML = '';
+      list.forEach(n => {
+        const li = document.createElement('li');
+        li.textContent = n;
+        ul.appendChild(li);
+      });
+    });
+
+    socket.on('roomClosed', () => {
+      alert('Room closed');
+    });
+  </script>
+</body>
+</html>
