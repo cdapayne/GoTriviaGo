@@ -31,6 +31,7 @@
   <script>
     const socket = io();
     let roomCode = null;
+    let generatedData = null;
 
     document.getElementById('createRoom').onclick = () => {
       socket.emit('adminCreateRoom');
@@ -44,6 +45,7 @@
     });
 
     function buildForm(){
+      generatedData = null;
       const categoriesDiv = document.getElementById('categories');
       categoriesDiv.innerHTML = '';
       for (let c=0;c<4;c++){
@@ -62,19 +64,24 @@
     }
 
     document.getElementById('saveSetup').onclick = () => {
-      const categories = [];
-      const cats = document.getElementById('categories').children;
-      for (let i=0;i<cats.length;i++){
-        const name = cats[i].querySelector('input').value || 'Category '+(i+1);
-        const qs = [];
-        const qDivs = cats[i].querySelectorAll('.qs .question-block');
-        qDivs.forEach(div => {
-          const text = div.querySelector('.qtext').value;
-          const opts = Array.from(div.querySelectorAll('.opt')).map(i=>i.value);
-          const ans = parseInt(div.querySelector('.correct').value,10);
-          qs.push({ text, options: opts, answer: ans });
-        });
-        categories.push({ name, questions: qs });
+      let categories = [];
+      if (generatedData) {
+        categories = generatedData;
+      } else {
+        const cats = document.getElementById('categories').children;
+        for (let i=0;i<cats.length;i++){
+          const nameInput = cats[i].querySelector('input');
+          const name = nameInput && nameInput.value ? nameInput.value : 'Category '+(i+1);
+          const qs = [];
+          const qDivs = cats[i].querySelectorAll('.qs .question-block');
+          qDivs.forEach(div => {
+            const text = div.querySelector('.qtext').value;
+            const opts = Array.from(div.querySelectorAll('.opt')).map(i=>i.value);
+            const ans = parseInt(div.querySelector('.correct').value,10);
+            qs.push({ text, options: opts, answer: ans });
+          });
+          categories.push({ name, questions: qs });
+        }
       }
       socket.emit('adminSetup', { roomCode, categories });
     };
@@ -94,6 +101,7 @@
     };
 
     socket.on('generatedQuestions', data => {
+      generatedData = data;
       const categoriesDiv = document.getElementById('categories');
       categoriesDiv.innerHTML = '';
       data.forEach(cat => {
