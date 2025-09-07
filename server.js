@@ -68,17 +68,21 @@ function startMiniGame(roomCode) {
   room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), duration);
 }
 
-function endMiniGame(roomCode) {
+function endMiniGame(roomCode, forcedWinnerId = null) {
   const room = rooms[roomCode];
   if (!room || !room.miniGame) return;
   const counts = room.miniGame.counts;
-  let winnerId = null;
+  let winnerId = forcedWinnerId;
   let max = -1;
-  for (const [id, count] of Object.entries(counts)) {
-    if (count > max) {
-      max = count;
-      winnerId = id;
+  if (!winnerId) {
+    for (const [id, count] of Object.entries(counts)) {
+      if (count > max) {
+        max = count;
+        winnerId = id;
+      }
     }
+  } else {
+    max = counts[winnerId] || 0;
   }
   let winner = null;
   if (winnerId && room.players[winnerId]) {
@@ -348,7 +352,12 @@ io.on('connection', socket => {
   socket.on('miniGameTap', ({ roomCode }) => {
     const room = rooms[roomCode];
     if (!room || !room.miniGame) return;
-    room.miniGame.counts[socket.id] = (room.miniGame.counts[socket.id] || 0) + 1;
+    const newCount = (room.miniGame.counts[socket.id] || 0) + 1;
+    room.miniGame.counts[socket.id] = newCount;
+    io.to(socket.id).emit('miniGameDistance', { distance: newCount });
+    if (newCount >= 100) {
+      endMiniGame(roomCode, socket.id);
+    }
   });
 
   socket.on('disconnect', () => {

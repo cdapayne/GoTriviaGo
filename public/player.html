@@ -36,6 +36,7 @@
       </div>
       <button id="runLeft" style="width:45%; display:inline-block;">Left</button>
       <button id="runRight" style="width:45%; display:inline-block;">Right</button>
+      <div id="miniDistance">0 m</div>
       <div id="miniResult"></div>
     </div>
     <button id="buzz" class="buzz-btn">Buzz!</button>
@@ -50,6 +51,7 @@
     let hasAnswered = false;
     let lastRun = null;
     let miniGameActive = false;
+    let runDistance = 0;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -173,6 +175,8 @@
       mg.style.display = 'block';
       lastRun = null;
       miniGameActive = true;
+       runDistance = 0;
+       document.getElementById('miniDistance').textContent = '0 m';
       const prog = document.getElementById('miniProgress');
       const bar = document.getElementById('miniProgressBar');
       prog.style.display = 'block';
@@ -198,6 +202,11 @@
         lastRun = 'right';
       }
     };
+
+    socket.on('miniGameDistance', ({ distance }) => {
+      runDistance = distance;
+      document.getElementById('miniDistance').textContent = distance + ' m';
+    });
 
     socket.on('miniGameEnd', ({ winner }) => {
       clearInterval(miniInterval);
