@@ -15,15 +15,18 @@
       <button id="joinBtn">Join</button>
     </div>
     <div id="game" style="display:none;">
-      <div id="question" class="question-block"></div>
-      <button id="buzz">Buzz!</button>
-      <div id="options" style="display:none;"></div>
+      <div id="category" class="category"></div>
+      <div id="question" class="question-block question-text"></div>
+      <div id="options" class="options" style="display:none;"></div>
+      <button id="buzz" class="buzz-btn">Buzz!</button>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let roomCode = null;
+    let buzzedIn = false;
+    let selectedAnswer = null;
 
     document.getElementById('joinBtn').onclick = () => {
       roomCode = document.getElementById('room').value.toUpperCase();
@@ -37,30 +40,52 @@
     });
 
     socket.on('question', q => {
-      document.getElementById('question').textContent = q.category + ': ' + q.text;
-      document.getElementById('options').style.display='none';
-      document.getElementById('buzz').style.display='inline';
+      document.getElementById('category').textContent = q.category;
+      document.getElementById('question').textContent = q.text;
       const optsDiv = document.getElementById('options');
+      optsDiv.style.display='none';
       optsDiv.innerHTML='';
       q.options.forEach((opt, idx) => {
         const btn = document.createElement('button');
         btn.textContent = opt;
         btn.className='option';
         btn.onclick = () => {
-          socket.emit('playerAnswer', { roomCode, answer: idx });
-          document.getElementById('options').style.display='none';
+          selectedAnswer = idx;
+          document.querySelectorAll('.option').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
         };
         optsDiv.appendChild(btn);
       });
+      selectedAnswer = null;
+      buzzedIn = false;
+      document.getElementById('buzz').textContent = 'Buzz!';
+      document.getElementById('buzz').style.display='block';
     });
 
     document.getElementById('buzz').onclick = () => {
-      socket.emit('playerBuzz', { roomCode });
+      if (!buzzedIn) {
+        socket.emit('playerBuzz', { roomCode });
+      } else {
+        if (selectedAnswer !== null) {
+          socket.emit('playerAnswer', { roomCode, answer: selectedAnswer });
+          document.getElementById('options').style.display='none';
+          document.getElementById('buzz').style.display='none';
+        } else {
+          alert('Select an answer');
+        }
+      }
     };
 
     socket.on('buzzAccepted', () => {
-      document.getElementById('buzz').style.display='none';
+      buzzedIn = true;
+      document.getElementById('buzz').textContent = 'Submit';
       document.getElementById('options').style.display='block';
+    });
+
+
+    socket.on('removed', () => {
+      alert('You have been removed from the game');
+      location.reload();
     });
 
     socket.on('roomClosed', () => {

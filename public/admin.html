@@ -7,24 +7,30 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Admin</h1>
-    <button id="createRoom">Create Room</button>
-    <div id="roomInfo"></div>
-    <div id="setup" style="display:none;">
-      <h2>Setup Categories and Questions</h2>
-      <div id="aiSetup" class="question-block">
-        <input id="apiKey" placeholder="OpenAI API Key">
-        <textarea id="prompt" placeholder="Describe the trivia you want"></textarea>
-        <button id="generate">Generate Questions</button>
+  <div class="admin-wrapper">
+    <div class="container">
+      <h1>Admin</h1>
+      <button id="createRoom">Create Room</button>
+      <div id="roomInfo"></div>
+      <div id="setup" style="display:none;">
+        <h2>Setup Categories and Questions</h2>
+        <div id="aiSetup" class="question-block">
+          <input id="apiKey" placeholder="OpenAI API Key">
+          <textarea id="prompt" placeholder="Describe the trivia you want"></textarea>
+          <button id="generate">Generate Questions</button>
+        </div>
+        <div id="categories"></div>
+        <button id="saveSetup">Save Setup</button>
+        <button id="nextQuestion">Next Question</button>
       </div>
-      <div id="categories"></div>
-      <button id="saveSetup">Save Setup</button>
-      <button id="startQuestion">Start Question</button>
+      <div>
+        <h3>Players:</h3>
+        <ul id="players"></ul>
+      </div>
     </div>
-    <div>
-      <h3>Players:</h3>
-      <ul id="players"></ul>
+    <div id="scorePanel" class="score-panel">
+      <h3>Scores</h3>
+      <ul id="scores"></ul>
     </div>
   </div>
   <script src="/socket.io/socket.io.js"></script>
@@ -41,6 +47,7 @@
       roomCode = code;
       document.getElementById('roomInfo').textContent = 'Room Code: ' + code;
       document.getElementById('setup').style.display = 'block';
+      document.getElementById('nextQuestion').style.display = 'inline';
       buildForm();
     });
 
@@ -86,8 +93,9 @@
       socket.emit('adminSetup', { roomCode, categories });
     };
 
-    document.getElementById('startQuestion').onclick = () => {
+    document.getElementById('nextQuestion').onclick = () => {
       socket.emit('adminStartQuestion', { roomCode });
+      document.getElementById('nextQuestion').style.display = 'none';
     };
 
     document.getElementById('generate').onclick = () => {
@@ -125,11 +133,30 @@
     socket.on('players', list => {
       const ul = document.getElementById('players');
       ul.innerHTML = '';
-      list.forEach(n => {
+      list.forEach(p => {
         const li = document.createElement('li');
-        li.textContent = n;
+        li.textContent = p.name + ' ';
+        const btn = document.createElement('button');
+        btn.textContent = 'Remove';
+        btn.onclick = () => socket.emit('adminRemovePlayer', { roomCode, playerId: p.id });
+        li.appendChild(btn);
         ul.appendChild(li);
       });
+    });
+
+    socket.on('scoreboard', scores => {
+      const ul = document.getElementById('scores');
+      ul.innerHTML = '';
+      scores.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s.name + ': ' + s.score;
+        if (s.leader) li.classList.add('leader');
+        ul.appendChild(li);
+      });
+    });
+
+    socket.on('allAnswered', () => {
+      document.getElementById('nextQuestion').style.display = 'inline';
     });
 
     socket.on('roomClosed', () => {

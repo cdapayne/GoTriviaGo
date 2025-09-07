@@ -10,6 +10,23 @@ app.use(express.static('public'));
 
 const rooms = {};
 
+function emitPlayers(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const list = Object.entries(room.players).map(([id, p]) => ({ id, name: p.name }));
+  io.to(room.admin).emit('players', list);
+}
+
+function emitScoreboard(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const scores = Object.values(room.players).map(p => ({ name: p.name, score: p.score }));
+  scores.sort((a, b) => b.score - a.score);
+  const top = scores.length ? scores[0].score : 0;
+  const data = scores.map(s => ({ ...s, leader: s.score === top && top > 0 }));
+  io.to(room.admin).emit('scoreboard', data);
+}
+
 function generateRoomCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
 }
@@ -114,11 +131,8 @@ io.on('connection', socket => {
       p.answer = null;
       p.correct = null;
     });
-    io.to(roomCode).emit('question', {
-      category: room.categories[sel.ci].name,
-      text: q.text,
-      options: q.options
-    });
+    emitPlayers(roomCode);
+    emitScoreboard(roomCode);
   });
 
   socket.on('playerJoin', ({ roomCode, name }) => {
@@ -172,6 +186,10 @@ io.on('connection', socket => {
     const time = room.questionStart ? Date.now() - room.questionStart : 0;
     io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct, time });
     io.to(roomCode).emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
+      emitScoreboard(roomCode);
+    if (Object.values(room.players).every(p => p.answered)) {
+      io.to(room.admin).emit('allAnswered');
+    }
   });
 
   socket.on('disconnect', () => {
@@ -179,7 +197,8 @@ io.on('connection', socket => {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
         io.to(code).emit('players', Object.values(room.players).map(p => p.name));
-        io.to(code).emit('scores', Object.values(room.players).map(p => ({ name: p.name, score: p.score })));
+         emitPlayers(code);
+        emitScoreboard(code);
       }
       if (room.admin === socket.id) {
         io.to(code).emit('roomClosed');
@@ -187,6 +206,20 @@ io.on('connection', socket => {
       }
     }
   });
+
+    socket.on('adminRemovePlayer', ({ roomCode, playerId }) => {
+    const room = rooms[roomCode];
+    if (!room || !room.players[playerId]) return;
+    const psocket = io.sockets.sockets.get(playerId);
+    if (psocket) {
+      psocket.leave(roomCode);
+      psocket.emit('removed');
+    }
+    delete room.players[playerId];
+    emitPlayers(roomCode);
+    emitScoreboard(roomCode);
+  });
+
 });
 
 const PORT = process.env.PORT || 3000;
