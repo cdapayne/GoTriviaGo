@@ -45,7 +45,7 @@ function handleTimeUp(roomCode) {
   room.current = null;
   room.questionTimer = null;
   io.to(roomCode).emit('timeUp');
-  if (room.questionCount % 5 === 0) {
+  if (room.runGame && room.questionCount % 5 === 0) {
     startMiniGame(roomCode);
   } else if (room.remaining.length > 0 && room.lastSettings) {
     setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
@@ -169,13 +169,14 @@ io.on('connection', socket => {
       current: null,
       questionCount: 0,
       miniGame: null,
-      miniGameTimer: null
+      miniGameTimer: null,
+      runGame: true
     };
     socket.join(code);
     socket.emit('roomCreated', code);
   });
 
-  socket.on('adminSetup', ({ roomCode, categories }) => {
+  socket.on('adminSetup', ({ roomCode, categories, runGame = true }) => {
     const room = rooms[roomCode];
     if (!room) {
       console.error(`adminSetup: room ${roomCode} not found`);
@@ -183,6 +184,7 @@ io.on('connection', socket => {
     }
     room.categories = categories;
     room.remaining = [];
+    room.runGame = runGame;
     categories.forEach((cat, ci) => {
       cat.questions.forEach((q, qi) => {
         room.remaining.push({ ci, qi });
@@ -343,7 +345,7 @@ io.on('connection', socket => {
     if (allAnswered) {
       if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
       room.current = null;
-      if (room.questionCount % 5 === 0) {
+      if (room.runGame && room.questionCount % 5 === 0) {
         startMiniGame(roomCode);
       } else if (room.remaining.length > 0 && room.lastSettings) {
         setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
@@ -356,7 +358,11 @@ io.on('connection', socket => {
     if (!room || !room.miniGame) return;
     const newCount = (room.miniGame.counts[socket.id] || 0) + 1;
     room.miniGame.counts[socket.id] = newCount;
+    const player = room.players[socket.id];
     io.to(socket.id).emit('miniGameDistance', { distance: newCount });
+    if (player) {
+      io.to(roomCode).emit('miniGameUpdate', { id: socket.id, name: player.name, distance: newCount });
+    }
     if (newCount >= 100) {
       endMiniGame(roomCode, socket.id);
     }

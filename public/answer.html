@@ -22,6 +22,7 @@
       <div class="column"><h2>Correct</h2><ul id="correctList" class="answers-list"></ul></div>
       <div class="column"><h2>Incorrect</h2><ul id="incorrectList" class="answers-list"></ul></div>
     </div>
+    <div id="runGame" class="run-track" style="display:none;"></div>
     <div id="scorePanel" class="side-panel">
       <h3>Scores</h3>
       <ul id="scoreList"></ul>
@@ -36,6 +37,7 @@
     let playerCount = 0;
     let answered = 0;
     let progressInterval = null;
+    let currentPlayers = [];
 
     document.getElementById('joinBtn').onclick = () => {
       roomCode = document.getElementById('room').value.toUpperCase();
@@ -49,7 +51,12 @@
 
     socket.on('question', q => {
       document.getElementById('catDisplay').textContent = q.category;
-      document.getElementById('question').textContent = q.text;
+      document.getElementById('catDisplay').style.display = 'block';
+      const qEl = document.getElementById('question');
+      qEl.textContent = q.text;
+      qEl.style.display = 'block';
+      document.getElementById('runGame').style.display = 'none';
+      document.getElementById('answers').style.display = 'flex';
       document.getElementById('correctList').innerHTML='';
       document.getElementById('incorrectList').innerHTML='';
       currentOptions = q.options;
@@ -91,6 +98,7 @@
 
     socket.on('scores', list => {
       playerCount = list.length;
+      currentPlayers = list;
       const ul = document.getElementById('scoreList');
       ul.innerHTML = '';
       list.forEach(s => {
@@ -98,6 +106,43 @@
         li.textContent = s.name + ': ' + s.score;
         ul.appendChild(li);
       });
+    });
+
+    socket.on('miniGameStart', () => {
+      document.getElementById('catDisplay').style.display = 'none';
+      document.getElementById('question').style.display = 'none';
+      document.getElementById('answers').style.display = 'none';
+      document.getElementById('progress').style.display = 'none';
+      const track = document.getElementById('runGame');
+      track.innerHTML = '';
+      currentPlayers.forEach(p => {
+        const lane = document.createElement('div');
+        lane.className = 'lane';
+        lane.innerHTML = '<div class="lane-label">'+p.name+'</div><img src="/images/run.gif" class="runner" id="runner_'+p.id+'">';
+        track.appendChild(lane);
+      });
+      track.style.display = 'block';
+    });
+
+    socket.on('miniGameUpdate', ({ id, distance }) => {
+      const runner = document.getElementById('runner_' + id);
+      if (runner) {
+        const pct = Math.min(distance, 100) / 100 * 75;
+        runner.style.left = pct + '%';
+      }
+    });
+
+    socket.on('miniGameEnd', ({ winner }) => {
+      const track = document.getElementById('runGame');
+      const msg = document.createElement('div');
+      msg.className = 'lane-label';
+      msg.style.top = '10px';
+      msg.textContent = winner ? (winner.name + ' wins!') : 'No winner';
+      track.appendChild(msg);
+      setTimeout(() => {
+        track.style.display = 'none';
+        track.innerHTML = '';
+      }, 2000);
     });
 
     socket.on('roomClosed', () => {

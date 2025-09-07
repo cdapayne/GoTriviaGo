@@ -26,6 +26,7 @@
         <select id="savedSetups"></select>
       </div>
       <label><input type="checkbox" id="randomize"> Randomize answers</label>
+      <label><input type="checkbox" id="includeRunGame" checked> Include Run Game</label>
       <input id="timeLimit" type="number" placeholder="Time limit (seconds)">
       <button id="nextQuestion" style="display:none;">Start Question</button>
     </div>
@@ -102,7 +103,7 @@
               q.options = Array.from(qDiv.querySelectorAll('.opt')).map(i=>i.value);
               q.answer = parseInt(qDiv.querySelector('.correct').value,10);
               renderEditable(data);
-              socket.emit('adminSetup', { roomCode, categories: data });
+              socket.emit('adminSetup', { roomCode, categories: data, runGame: document.getElementById('includeRunGame').checked });
             };
           };
           catDiv.appendChild(qDiv);
@@ -131,10 +132,11 @@
           categories.push({ name, questions: qs });
         }
       }
-      socket.emit('adminSetup', { roomCode, categories });
+      const runGame = document.getElementById('includeRunGame').checked;
+      socket.emit('adminSetup', { roomCode, categories, runGame });
       const name = prompt('Name this setup');
       if (name) {
-        localStorage.setItem('setup_' + name, JSON.stringify(categories));
+        localStorage.setItem('setup_' + name, JSON.stringify({ categories, runGame }));
         refreshSaved();
       }
       const btn = document.getElementById('nextQuestion');
@@ -185,10 +187,12 @@
     document.getElementById('savedSetups').onchange = e => {
       const key = e.target.value;
       if (!key) return;
-      const data = JSON.parse(localStorage.getItem(key));
-      generatedData = data;
+      const saved = JSON.parse(localStorage.getItem(key));
+      const cats = saved.categories || saved;
+      generatedData = cats;
+      document.getElementById('includeRunGame').checked = saved.runGame !== false;
       renderEditable(generatedData);
-      socket.emit('adminSetup', { roomCode, categories: data });
+      socket.emit('adminSetup', { roomCode, categories: cats, runGame: document.getElementById('includeRunGame').checked });
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Start Question';
       btn.style.display = 'block';
