@@ -45,7 +45,7 @@ function handleTimeUp(roomCode) {
   room.current = null;
   room.questionTimer = null;
   io.to(roomCode).emit('timeUp');
-  if (room.questionCount % 5 === 0) {
+  if (room.includeRunGame && room.questionCount % 5 === 0) {
     startMiniGame(roomCode);
   } else if (room.remaining.length > 0 && room.lastSettings) {
     setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
@@ -169,7 +169,8 @@ io.on('connection', socket => {
       current: null,
       questionCount: 0,
       miniGame: null,
-      miniGameTimer: null
+      miniGameTimer: null,
+      includeRunGame: true
     };
     socket.join(code);
     socket.emit('roomCreated', code);
@@ -242,7 +243,9 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('adminStartQuestion', ({ roomCode, randomize, timeLimit }) => {
+  socket.on('adminStartQuestion', ({ roomCode, randomize, timeLimit, includeRun }) => {
+    const room = rooms[roomCode];
+    if (room) room.includeRunGame = includeRun;
     startQuestion(roomCode, randomize, timeLimit);
   });
 
@@ -343,7 +346,7 @@ io.on('connection', socket => {
     if (allAnswered) {
       if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
       room.current = null;
-      if (room.questionCount % 5 === 0) {
+      if (room.includeRunGame && room.questionCount % 5 === 0) {
         startMiniGame(roomCode);
       } else if (room.remaining.length > 0 && room.lastSettings) {
         setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);

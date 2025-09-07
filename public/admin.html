@@ -26,6 +26,7 @@
         <select id="savedSetups"></select>
       </div>
       <label><input type="checkbox" id="randomize"> Randomize answers</label>
+      <label><input type="checkbox" id="includeRun" checked> Include Run Game</label>
       <input id="timeLimit" type="number" placeholder="Time limit (seconds)">
       <button id="nextQuestion" style="display:none;">Start Question</button>
     </div>
@@ -145,7 +146,8 @@
     document.getElementById('nextQuestion').onclick = () => {
       const randomize = document.getElementById('randomize').checked;
       const tl = parseInt(document.getElementById('timeLimit').value, 10);
-      socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl });
+      const includeRun = document.getElementById('includeRun').checked;
+      socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl, includeRun });
       document.getElementById('nextQuestion').style.display = 'none';
     };
 

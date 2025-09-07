@@ -108,6 +108,11 @@ input, textarea, select {
   max-width: none;
   font-size: 2.5rem;
   padding: 1.5rem 0;
+  transition: none;
+}
+
+.buzz-btn:active {
+  transform: translateX(-50%);
 }
 
 .category-tag {
