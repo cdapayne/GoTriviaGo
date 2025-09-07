@@ -108,6 +108,12 @@ input, textarea, select {
   max-width: none;
   font-size: 2.5rem;
   padding: 1.5rem 0;
+  background: var(--accent);
+  transition: none;
+}
+
+.buzz-btn:active {
+  transform: translateX(-50%);
 }
 
 .category-tag {
@@ -243,6 +249,49 @@ input, textarea, select {
 .countdown {
   font-size: 4rem;
   font-weight: bold;
+}
+
+.run-track {
+  width: 80%;
+  margin: 2rem auto;
+  position: relative;
+  background: #555;
+}
+
+.run-track::after {
+  content: '';
+  position: absolute;
+  left: 75%;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: #fff;
+}
+
+.run-track .lane {
+  position: relative;
+  height: 80px;
+  border-bottom: 2px solid #fff;
+}
+
+.run-track .lane:last-child {
+  border-bottom: none;
+}
+
+.run-track .lane-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+}
+
+.run-track .runner {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 60px;
+  left: 0;
 }
 
 @media (max-width: 600px) {
