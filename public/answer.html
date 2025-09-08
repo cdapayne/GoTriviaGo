@@ -120,14 +120,6 @@
       track.style.display = 'block';
     });
 
-    socket.on('miniGameUpdate', ({ id, distance }) => {
-      const runner = document.getElementById('runner_' + id);
-      if (runner) {
-        const pct = Math.min(distance, 100) / 100 * 75;
-        runner.style.left = pct + '%';
-      }
-    });
-
     socket.on('miniGameEnd', ({ winner, replay }) => {
       const track = document.getElementById('runGame');
       const msg = document.createElement('div');

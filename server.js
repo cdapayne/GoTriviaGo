@@ -422,27 +422,12 @@ io.on('connection', socket => {
     }
   });
 
-  function handleMiniGameTap(roomCode, count = 1) {
-    const room = rooms[roomCode];
-    if (!room || !room.miniGame || room.miniGame.type !== 'run' || !count) return;
-    const newCount = (room.miniGame.counts[socket.id] || 0) + count;
-    room.miniGame.counts[socket.id] = newCount;
-    room.miniGame.tapCount += count;
-    io.to(roomCode).emit('miniGameUpdate', { id: socket.id, distance: newCount });
-    console.log(`[runGame] tap from ${socket.id}, total taps: ${room.miniGame.tapCount}`);
-  }
-
-  socket.on('miniGameTap', ({ roomCode }) => handleMiniGameTap(roomCode, 1));
-
-  socket.on('miniGameTapBatch', ({ roomCode, count }) => handleMiniGameTap(roomCode, count));
-
   socket.on('miniGameResult', ({ roomCode, taps }) => {
     const room = rooms[roomCode];
     if (!room || !room.miniGame || room.miniGame.type !== 'run' || typeof taps !== 'number') return;
     const prev = room.miniGame.counts[socket.id] || 0;
     room.miniGame.counts[socket.id] = taps;
     room.miniGame.tapCount += taps - prev;
-    io.to(roomCode).emit('miniGameUpdate', { id: socket.id, distance: taps });
     console.log(`[runGame] result from ${socket.id}: ${taps} taps`);
   });
 
