@@ -361,10 +361,10 @@ io.on('connection', socket => {
     }
   });
 
-  socket.on('miniGameTap', ({ roomCode }) => {
+  function handleMiniGameTap(roomCode, count = 1) {
     const room = rooms[roomCode];
-    if (!room || !room.miniGame) return;
-    const newCount = (room.miniGame.counts[socket.id] || 0) + 1;
+    if (!room || !room.miniGame || !count) return;
+    const newCount = (room.miniGame.counts[socket.id] || 0) + count;
     room.miniGame.counts[socket.id] = newCount;
     const player = room.players[socket.id];
     io.to(socket.id).emit('miniGameDistance', { distance: newCount });
@@ -374,7 +374,11 @@ io.on('connection', socket => {
     if (newCount >= 100) {
       endMiniGame(roomCode, socket.id);
     }
-  });
+  }
+
+  socket.on('miniGameTap', ({ roomCode }) => handleMiniGameTap(roomCode, 1));
+
+  socket.on('miniGameTapBatch', ({ roomCode, count }) => handleMiniGameTap(roomCode, count));
 
   socket.on('disconnect', () => {
     connectionCount = Math.max(0, connectionCount - 1);

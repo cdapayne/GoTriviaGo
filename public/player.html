@@ -45,7 +45,8 @@
   </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io();
+    // Try websockets first; fall back to polling if unavailable
+    const socket = io({ transports: ['websocket', 'polling'] });
     let roomCode = null;
     let selectedAnswer = null;
     let progressInterval = null;
@@ -56,6 +57,8 @@
     let runDistance = 0;
     let miniGameReady = false;
     let miniCountdownTimer = null;
+    let pendingTaps = 0;
+    let tapTimer = null;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -220,11 +223,22 @@
       }
     });
 
+    function sendTapBatch() {
+      socket.emit('miniGameTapBatch', { roomCode, count: pendingTaps });
+      pendingTaps = 0;
+      tapTimer = null;
+    }
+
     function handleRun(dir) {
       if (!miniGameReady) return;
       if (lastRun !== dir) {
-        socket.emit('miniGameTap', { roomCode });
         lastRun = dir;
+        pendingTaps++;
+        runDistance++;
+        document.getElementById('miniDistance').textContent = runDistance + ' m';
+        if (!tapTimer) {
+          tapTimer = setTimeout(sendTapBatch, 100);
+        }
       }
     }
 
