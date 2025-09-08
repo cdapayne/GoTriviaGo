@@ -202,7 +202,15 @@
         miniInterval = setInterval(() => {
           const remainTime = Math.max(0, end - Date.now());
           bar.style.width = (remainTime / duration * 100) + '%';
-          if (remainTime <= 0) clearInterval(miniInterval);
+          if (remainTime <= 0) {
+            clearInterval(miniInterval);
+            miniGameReady = false;
+            if (tapTimer) {
+              clearTimeout(tapTimer);
+              sendTapBatch();
+            }
+            socket.emit('miniGameResult', { roomCode, taps: runDistance });
+          }
         }, 100);
       }
     });

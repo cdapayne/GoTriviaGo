@@ -128,7 +128,7 @@
       }
     });
 
-    socket.on('miniGameEnd', ({ winner }) => {
+    socket.on('miniGameEnd', ({ winner, replay }) => {
       const track = document.getElementById('runGame');
       const msg = document.createElement('div');
       msg.className = 'lane-label';
@@ -136,8 +136,34 @@
       msg.textContent = winner ? (winner.name + ' wins!') : 'No winner';
       track.appendChild(msg);
       setTimeout(() => {
-        track.style.display = 'none';
         track.innerHTML = '';
+        replay.forEach(p => {
+          const lane = document.createElement('div');
+          lane.className = 'lane';
+          lane.innerHTML = '<div class="lane-label">'+p.name+'</div><img src="/images/run.gif" class="runner" id="replay_'+p.id+'">';
+          track.appendChild(lane);
+        });
+        const start = Date.now();
+        const duration = 12000;
+        function animate() {
+          const elapsed = Date.now() - start;
+          const pct = Math.min(elapsed / duration, 1);
+          replay.forEach(p => {
+            const runner = document.getElementById('replay_' + p.id);
+            const finalPct = Math.min(p.taps, 100) / 100 * 75;
+            runner.style.left = (pct * finalPct) + '%';
+          });
+          if (elapsed < duration) {
+            requestAnimationFrame(animate);
+          } else {
+            setTimeout(() => {
+              track.style.display = 'none';
+              track.innerHTML = '';
+              socket.emit('miniGameReplayFinished', { roomCode });
+            }, 1000);
+          }
+        }
+        animate();
       }, 2000);
     });
 
