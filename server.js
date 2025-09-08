@@ -63,52 +63,104 @@ function handleTimeUp(roomCode) {
   }
 }
 
-function startMiniGame(roomCode) {
+function startRunGame(roomCode) {
   const room = rooms[roomCode];
   if (!room || room.miniGame) return;
   const countdown = 3000; // 3 second countdown
   const duration = 10000; // 10 seconds of running
   room.miniGame = {
+    type: 'run',
     start: Date.now() + countdown,
     duration,
-    counts: {}
+    counts: {},
+    tapCount: 0
   };
+  console.log(`[runGame] start in room ${roomCode}`);
   io.to(roomCode).emit('miniGameStart', {
+    type: 'run',
     startTime: room.miniGame.start,
     duration,
     countdown
   });
-  room.miniGameTimer = setTimeout(() => endMiniGame(roomCode), countdown + duration);
+  room.miniGameTimer = setTimeout(() => endRunGame(roomCode), countdown + duration);
 }
 
-function endMiniGame(roomCode, forcedWinnerId = null) {
+function endRunGame(roomCode) {
   const room = rooms[roomCode];
   if (!room || !room.miniGame) return;
   const counts = room.miniGame.counts;
-  let winnerId = forcedWinnerId;
+  let winnerId = null;
   let max = -1;
-  if (!winnerId) {
-    for (const [id, count] of Object.entries(counts)) {
-      if (count > max) {
-        max = count;
-        winnerId = id;
-      }
+  for (const [id, count] of Object.entries(counts)) {
+    if (count > max) {
+      max = count;
+      winnerId = id;
     }
-  } else {
-    max = counts[winnerId] || 0;
   }
   let winner = null;
   if (winnerId && room.players[winnerId]) {
     room.players[winnerId].score += 1;
     winner = { id: winnerId, name: room.players[winnerId].name, count: max };
   }
+  console.log(`[runGame] end in room ${roomCode} with ${room.miniGame.tapCount} taps`);
+  const replay = Object.entries(counts).map(([id, count]) => ({
+    id,
+    name: room.players[id] ? room.players[id].name : id,
+    count
+  }));
   emitScores(roomCode);
-  io.to(roomCode).emit('miniGameEnd', { winner });
+  io.to(roomCode).emit('miniGameEnd', { type: 'run', winner, replay });
   clearTimeout(room.miniGameTimer);
   room.miniGame = null;
   room.miniGameTimer = null;
   if (room.remaining.length > 0 && room.lastSettings) {
     setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
+}
+
+function startCoinTossGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || room.miniGame) return;
+  const countdown = 3000; // players choose during countdown
+  room.miniGame = {
+    type: 'coinToss',
+    start: Date.now() + countdown,
+    choices: {}
+  };
+  io.to(roomCode).emit('miniGameStart', {
+    type: 'coinToss',
+    startTime: room.miniGame.start,
+    countdown
+  });
+  room.miniGameTimer = setTimeout(() => endCoinTossGame(roomCode), countdown);
+}
+
+function endCoinTossGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || !room.miniGame) return;
+  const result = Math.random() < 0.5 ? 'heads' : 'tails';
+  const winners = [];
+  for (const [id, choice] of Object.entries(room.miniGame.choices)) {
+    if (choice === result && room.players[id]) {
+      room.players[id].score += 1;
+      winners.push({ id, name: room.players[id].name });
+    }
+  }
+  emitScores(roomCode);
+  io.to(roomCode).emit('miniGameEnd', { type: 'coinToss', result, winners });
+  clearTimeout(room.miniGameTimer);
+  room.miniGame = null;
+  room.miniGameTimer = null;
+  if (room.remaining.length > 0 && room.lastSettings) {
+    setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  }
+}
+
+function startMiniGame(roomCode) {
+  if (Math.random() < 0.5) {
+    startRunGame(roomCode);
+  } else {
+    startCoinTossGame(roomCode);
   }
 }
 
@@ -373,22 +425,22 @@ io.on('connection', socket => {
 
   function handleMiniGameTap(roomCode, count = 1) {
     const room = rooms[roomCode];
-    if (!room || !room.miniGame || !count) return;
+    if (!room || !room.miniGame || room.miniGame.type !== 'run' || !count) return;
     const newCount = (room.miniGame.counts[socket.id] || 0) + count;
     room.miniGame.counts[socket.id] = newCount;
-    const player = room.players[socket.id];
-    io.to(socket.id).emit('miniGameDistance', { distance: newCount });
-    if (player) {
-      io.to(roomCode).emit('miniGameUpdate', { id: socket.id, name: player.name, distance: newCount });
-    }
-    if (newCount >= 100) {
-      endMiniGame(roomCode, socket.id);
-    }
+    room.miniGame.tapCount += count;
+    console.log(`[runGame] tap from ${socket.id}, total taps: ${room.miniGame.tapCount}`);
   }
 
   socket.on('miniGameTap', ({ roomCode }) => handleMiniGameTap(roomCode, 1));
 
   socket.on('miniGameTapBatch', ({ roomCode, count }) => handleMiniGameTap(roomCode, count));
+
+  socket.on('coinTossChoice', ({ roomCode, choice }) => {
+    const room = rooms[roomCode];
+    if (!room || !room.miniGame || room.miniGame.type !== 'coinToss') return;
+    room.miniGame.choices[socket.id] = choice;
+  });
 
   socket.on('disconnect', () => {
     connectionCount = Math.max(0, connectionCount - 1);
@@ -396,8 +448,13 @@ io.on('connection', socket => {
     for (const [code, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
-        if (room.miniGame && room.miniGame.counts) {
-          delete room.miniGame.counts[socket.id];
+        if (room.miniGame) {
+          if (room.miniGame.counts) {
+            delete room.miniGame.counts[socket.id];
+          }
+          if (room.miniGame.choices) {
+            delete room.miniGame.choices[socket.id];
+          }
         }
         emitPlayers(code);
         emitScores(code);
