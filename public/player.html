@@ -10,10 +10,6 @@
 <body>
   <div id="roomCodeDisplay" class="room-code" style="display:none;"></div>
   <div id="playerScore" class="player-score" style="display:none;"></div>
-  <div id="standingsPanel" class="side-panel" style="display:none;">
-    <h3>Standings</h3>
-    <ul id="standingsList"></ul>
-  </div>
   <div id="submittedMsg" class="submitted-msg" style="display:none;">Question has been submitted.</div>
   <div class="container">
     <div id="join" class="question-block">
@@ -67,16 +63,6 @@
         sd.textContent = 'Score: ' + me.score;
         sd.style.display = 'block';
       }
-      const ul = document.getElementById('standingsList');
-      ul.innerHTML = '';
-      list.forEach(s => {
-        const li = document.createElement('li');
-        li.textContent = s.name + ': ' + s.score;
-        ul.appendChild(li);
-      });
-      if (hasAnswered && !miniGameActive) {
-        document.getElementById('standingsPanel').style.display = 'block';
-      }
     });
 
     document.getElementById('joinBtn').onclick = () => {
@@ -96,7 +82,6 @@
     socket.on('question', q => {
       selectedAnswer = null;
       hasAnswered = false;
-      document.getElementById('standingsPanel').style.display = 'none';
       document.getElementById('miniGame').style.display = 'none';
       const cat = document.getElementById('category');
       cat.textContent = q.category;
@@ -178,7 +163,6 @@
 
     socket.on('miniGameStart', ({ duration, startTime, countdown = 0 }) => {
       document.getElementById('game').style.display = 'none';
-      document.getElementById('standingsPanel').style.display = 'none';
       const mg = document.getElementById('miniGame');
       mg.style.display = 'block';
       lastRun = null;
@@ -271,9 +255,6 @@
         miniGameActive = false;
         miniGameReady = false;
         clearInterval(miniCountdownTimer);
-        if (hasAnswered) {
-          document.getElementById('standingsPanel').style.display = 'block';
-        }
       }, 2000);
     });
 
@@ -286,7 +267,6 @@
         document.getElementById('submittedMsg').textContent = "Time's up!";
         document.getElementById('submittedMsg').style.display = 'block';
         hasAnswered = true;
-        document.getElementById('standingsPanel').style.display = 'block';
       }
     }
 
