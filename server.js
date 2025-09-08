@@ -85,21 +85,17 @@ function startRunGame(roomCode) {
   room.miniGameTimer = setTimeout(() => endRunGame(roomCode), countdown + duration);
 }
 
-function endRunGame(roomCode, forcedWinnerId = null) {
+function endRunGame(roomCode) {
   const room = rooms[roomCode];
   if (!room || !room.miniGame) return;
   const counts = room.miniGame.counts;
-  let winnerId = forcedWinnerId;
+  let winnerId = null;
   let max = -1;
-  if (!winnerId) {
-    for (const [id, count] of Object.entries(counts)) {
-      if (count > max) {
-        max = count;
-        winnerId = id;
-      }
+  for (const [id, count] of Object.entries(counts)) {
+    if (count > max) {
+      max = count;
+      winnerId = id;
     }
-  } else {
-    max = counts[winnerId] || 0;
   }
   let winner = null;
   if (winnerId && room.players[winnerId]) {
@@ -107,8 +103,13 @@ function endRunGame(roomCode, forcedWinnerId = null) {
     winner = { id: winnerId, name: room.players[winnerId].name, count: max };
   }
   console.log(`[runGame] end in room ${roomCode} with ${room.miniGame.tapCount} taps`);
+  const replay = Object.entries(counts).map(([id, count]) => ({
+    id,
+    name: room.players[id] ? room.players[id].name : id,
+    count
+  }));
   emitScores(roomCode);
-  io.to(roomCode).emit('miniGameEnd', { type: 'run', winner });
+  io.to(roomCode).emit('miniGameEnd', { type: 'run', winner, replay });
   clearTimeout(room.miniGameTimer);
   room.miniGame = null;
   room.miniGameTimer = null;
@@ -429,14 +430,6 @@ io.on('connection', socket => {
     room.miniGame.counts[socket.id] = newCount;
     room.miniGame.tapCount += count;
     console.log(`[runGame] tap from ${socket.id}, total taps: ${room.miniGame.tapCount}`);
-    const player = room.players[socket.id];
-    io.to(socket.id).emit('miniGameDistance', { distance: newCount });
-    if (player) {
-      io.to(roomCode).emit('miniGameUpdate', { id: socket.id, name: player.name, distance: newCount });
-    }
-    if (newCount >= 100) {
-      endRunGame(roomCode, socket.id);
-    }
   }
 
   socket.on('miniGameTap', ({ roomCode }) => handleMiniGameTap(roomCode, 1));
