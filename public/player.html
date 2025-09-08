@@ -53,8 +53,6 @@
     let runDistance = 0;
     let miniGameReady = false;
     let miniCountdownTimer = null;
-    let pendingTaps = 0;
-    let tapTimer = null;
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -202,27 +200,21 @@
         miniInterval = setInterval(() => {
           const remainTime = Math.max(0, end - Date.now());
           bar.style.width = (remainTime / duration * 100) + '%';
-          if (remainTime <= 0) clearInterval(miniInterval);
+          if (remainTime <= 0) {
+            clearInterval(miniInterval);
+            miniGameReady = false;
+            socket.emit('miniGameResult', { roomCode, taps: runDistance });
+          }
         }, 100);
       }
     });
-
-    function sendTapBatch() {
-      socket.emit('miniGameTapBatch', { roomCode, count: pendingTaps });
-      pendingTaps = 0;
-      tapTimer = null;
-    }
 
     function handleRun(dir) {
       if (!miniGameReady) return;
       if (lastRun !== dir) {
         lastRun = dir;
-        pendingTaps++;
         runDistance++;
         document.getElementById('miniDistance').textContent = runDistance + ' m';
-        if (!tapTimer) {
-          tapTimer = setTimeout(sendTapBatch, 100);
-        }
       }
     }
 
@@ -233,11 +225,6 @@
       if (!miniGameActive) return;
       if (e.key === 'ArrowLeft') handleRun('left');
       if (e.key === 'ArrowRight') handleRun('right');
-    });
-
-    socket.on('miniGameDistance', ({ distance }) => {
-      runDistance = distance;
-      document.getElementById('miniDistance').textContent = distance + ' m';
     });
 
     socket.on('miniGameEnd', ({ winner }) => {
