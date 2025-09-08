@@ -66,6 +66,13 @@ function handleTimeUp(roomCode) {
 function startRunGame(roomCode) {
   const room = rooms[roomCode];
   if (!room || room.miniGame) return;
+  // Clear any existing mini game timer to avoid premature endings
+  if (room.miniGameTimer) {
+    clearTimeout(room.miniGameTimer);
+    room.miniGameTimer = null;
+  }
+  // Ensure we aren't still waiting on a previous mini game replay
+  room.awaitingReplay = false;
   const countdown = 3000; // 3 second countdown
   const duration = 12000; // 12 seconds of running
   room.miniGame = {
