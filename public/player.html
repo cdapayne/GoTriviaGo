@@ -53,6 +53,20 @@
     let runDistance = 0;
     let miniGameReady = false;
     let miniCountdownTimer = null;
+    const confettiColors = ['#e84351', '#ffb347', '#2fd56f', '#64d2ff', '#ffffff'];
+
+    function burstConfetti() {
+      for (let i = 0; i < 60; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.background = confettiColors[i % confettiColors.length];
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.animationDuration = '0.55s';
+        piece.style.setProperty('--drift', (Math.random() * 60 - 30) + 'px');
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 700);
+      }
+    }
 
     socket.on('scores', list => {
       const me = list.find(s => s.id === socket.id);
@@ -243,6 +257,12 @@
         miniGameReady = false;
         clearInterval(miniCountdownTimer);
       }, 2000);
+    });
+
+    socket.on('playerAnswered', data => {
+      if (data.id === socket.id && data.correct) {
+        burstConfetti();
+      }
     });
 
     function disableAnswering() {

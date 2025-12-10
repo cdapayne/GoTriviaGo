@@ -1,45 +1,92 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Spline+Sans:wght@400;500&display=swap');
+
 :root {
-  --bg: #1c1c1e;
-  --surface: #2c2c2e;
-  --surface-alt: #3a3a3c;
-  --text: #f5f5f7;
-  --accent: #0A84FF;
-  --accent-hover: #64D2FF;
+  --bg: #060b0a;
+  --bg-2: #0d0a13;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-alt: rgba(255, 255, 255, 0.12);
+  --text: #f7f9fb;
+  --accent: #e84351; /* holly red */
+  --accent-hover: #ffb347; /* golden glow */
+  --accent-2: #2fd56f; /* pine green */
   --correct: #30d158;
   --incorrect: #ff453a;
+  --grid: rgba(255, 255, 255, 0.05);
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Space Grotesk', 'Spline Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 1rem;
-  background: var(--bg);
+  background: radial-gradient(circle at 10% 10%, rgba(47, 213, 111, 0.25), transparent 30%),
+              radial-gradient(circle at 90% 0%, rgba(232, 67, 81, 0.25), transparent 25%),
+              linear-gradient(135deg, var(--bg), var(--bg-2));
   color: var(--text);
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(0deg, var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(circle at 50% 50%, rgba(0,0,0,0.4), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(255, 159, 67, 0.12), transparent 35%),
+              radial-gradient(circle at 80% 60%, rgba(47, 213, 111, 0.12), transparent 30%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+h1, h2, h3 {
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 .container {
-  max-width: 600px;
+  max-width: 720px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 button {
-  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
-  color: var(--text);
-  border: none;
-  padding: 0.5rem 1rem;
+  background: linear-gradient(120deg, var(--accent) 0%, var(--accent-hover) 50%, var(--accent-2) 100%);
+  color: #0c0c0c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.65rem 1.1rem;
   margin: 0.25rem 0;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05);
   cursor: pointer;
-  transition: background 0.3s ease, transform 0.1s ease;
+  transition: background 0.3s ease, transform 0.12s ease, box-shadow 0.3s ease, filter 0.3s ease;
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 button:hover {
-  background: var(--accent-hover);
+  filter: saturate(1.05);
+  box-shadow: 0 12px 32px rgba(232, 67, 81, 0.35);
 }
 
 button:active {
-  transform: scale(0.98);
+  transform: translateY(1px);
 }
 
 button.option {
@@ -50,21 +97,38 @@ button.option {
 
 input, textarea, select {
   width: 100%;
-  padding: 0.5rem;
+  padding: 0.65rem;
   margin: 0.25rem 0 1rem 0;
-  box-sizing: border-box;
   background: var(--surface-alt);
   color: var(--text);
-  border: 1px solid #48484a;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
 }
 
 .question-block {
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 1rem;
   margin-bottom: 1rem;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 28px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  position: relative;
+  overflow: hidden;
+}
+
+.question-block::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08), transparent 40%);
+  pointer-events: none;
+}
+
+.hint {
+  color: #c7c7cc;
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
 }
 
 .correct { color: var(--correct); }
@@ -74,12 +138,15 @@ input, textarea, select {
   position: fixed;
   top: 10px;
   right: 10px;
-  background: #1E90FF;
-  color: #fff;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-weight: bold;
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: #0c0c0c;
+  padding: 0.6rem 1.1rem;
+  border-radius: 12px;
+  font-weight: 700;
   z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  font-size: 1.6rem;
+  letter-spacing: 0.08em;
 }
 
 .side-panel {
@@ -88,11 +155,12 @@ input, textarea, select {
   right: 0;
   width: 200px;
   height: 100%;
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
   padding: 1rem;
   box-shadow: -2px 0 8px rgba(0,0,0,0.5);
   overflow-y: auto;
   transition: transform 0.3s ease;
+  backdrop-filter: blur(10px);
 }
 
 .side-panel.collapsed {
@@ -108,7 +176,7 @@ input, textarea, select {
   max-width: none;
   font-size: 2.5rem;
   padding: 1.5rem 0;
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: none;
 }
 
@@ -120,10 +188,12 @@ input, textarea, select {
   position: absolute;
   top: 10px;
   right: 10px;
-  background: rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 0.25rem 0.5rem;
-  font-weight: bold;
+  background: linear-gradient(120deg, rgba(47,213,111,0.25), rgba(232,67,81,0.25));
+  border-radius: 10px;
+  padding: 0.35rem 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .question-display {
@@ -131,8 +201,9 @@ input, textarea, select {
   font-weight: bold;
   text-align: center;
   background: rgba(255,255,255,0.1);
-  border-radius: 8px;
+  border-radius: 10px;
   margin: 1rem auto;
+  padding: 1rem;
 }
 
 .presentation .question-display {
@@ -140,10 +211,10 @@ input, textarea, select {
   padding: 1rem 2rem;
   display: inline-block;
   margin-top: 2rem;
-  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   -webkit-background-clip: text;
   color: transparent;
-  text-shadow: 0 0 10px rgba(10,132,255,0.5);
+  text-shadow: 0 0 18px rgba(255,255,255,0.15);
 }
 
 .options-list .option {
@@ -191,11 +262,15 @@ input, textarea, select {
 
 .answers-columns .column {
   flex: 1;
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
 
 .time-chip {
-  background: var(--accent);
-  color: #fff;
+  background: var(--accent-hover);
+  color: #0c0c0c;
   padding: 0 6px;
   border-radius: 12px;
   margin-left: 8px;
@@ -210,7 +285,7 @@ input, textarea, select {
 
 .progress-container {
   width: 100%;
-  background: #555;
+  background: rgba(255,255,255,0.08);
   height: 10px;
   border-radius: 5px;
   overflow: hidden;
@@ -219,7 +294,7 @@ input, textarea, select {
 
 .progress-bar {
   height: 100%;
-  background: var(--accent);
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
   width: 100%;
 }
 
@@ -228,10 +303,10 @@ input, textarea, select {
   top: 10px;
   left: 50%;
   transform: translateX(-50%);
-  background: #1E90FF;
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  color: #0c0c0c;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: bold;
   z-index: 1000;
 }
@@ -255,7 +330,9 @@ input, textarea, select {
   width: 80%;
   margin: 2rem auto;
   position: relative;
-  background: #555;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .run-track::after {
@@ -265,13 +342,13 @@ input, textarea, select {
   top: 0;
   bottom: 0;
   width: 4px;
-  background: #fff;
+  background: var(--accent-hover);
 }
 
 .run-track .lane {
   position: relative;
   height: 80px;
-  border-bottom: 2px solid #fff;
+  border-bottom: 2px solid rgba(255,255,255,0.35);
 }
 
 .run-track .lane:last-child {
@@ -294,6 +371,112 @@ input, textarea, select {
   left: 0;
 }
 
+.final-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  backdrop-filter: blur(12px);
+}
+
+.final-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
+  padding: 2rem;
+  border-radius: 18px;
+  max-width: 700px;
+  width: 90%;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.final-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(232, 67, 81, 0.18), transparent 45%),
+              radial-gradient(circle at 80% 30%, rgba(47, 213, 111, 0.18), transparent 40%);
+  pointer-events: none;
+}
+
+.final-subtitle {
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #ffb347;
+  font-weight: 700;
+}
+
+.winner-names {
+  font-size: 3rem;
+  font-weight: 700;
+  margin: 0.5rem 0 1rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.winner-chip {
+  padding: 0.4rem 0.8rem;
+  border-radius: 12px;
+  background: linear-gradient(120deg, var(--accent), var(--accent-hover));
+  color: #0c0c0c;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+
+.final-list {
+  margin-top: 1rem;
+}
+
+.final-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 90px;
+  align-items: center;
+  padding: 0.4rem 0.6rem;
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  margin: 0.25rem 0;
+}
+
+.final-row .rank {
+  color: #ffb347;
+  font-weight: 700;
+}
+
+.final-row .name {
+  text-align: left;
+}
+
+.final-row .score {
+  text-align: right;
+  font-weight: 600;
+}
+
+.confetti-piece {
+  position: fixed;
+  top: -10vh;
+  width: 8px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 2px;
+  opacity: 0.9;
+  animation: confettiFall 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 2000;
+}
+
+@keyframes confettiFall {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); }
+  100% { transform: translate3d(var(--drift, 0px), 100vh, 0) rotate(360deg); opacity: 0; }
+}
+
 @media (max-width: 600px) {
   body { padding: 0.5rem; }
+  .presentation .question-display { font-size: 2.8rem; }
+  .answers-columns { flex-direction: column; gap: 1rem; }
+  .winner-names { font-size: 2.2rem; }
 }

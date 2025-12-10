@@ -28,6 +28,13 @@
       <ul id="scoreList"></ul>
     </div>
   </div>
+  <div id="finalOverlay" class="final-overlay" style="display:none;">
+    <div class="final-card">
+      <div class="final-subtitle">Holiday Champions</div>
+      <div id="winnerNames" class="winner-names"></div>
+      <div id="finalScores" class="final-scores"></div>
+    </div>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
@@ -36,6 +43,20 @@
     let answered = 0;
     let progressInterval = null;
     let currentPlayers = [];
+    const confettiColors = ['#e84351', '#ffb347', '#2fd56f', '#64d2ff', '#ffffff'];
+
+    function blastConfetti(bursts = 120) {
+      for (let i = 0; i < bursts; i++) {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.background = confettiColors[i % confettiColors.length];
+        piece.style.left = Math.random() * 100 + 'vw';
+        piece.style.animationDuration = '0.75s';
+        piece.style.setProperty('--drift', (Math.random() * 80 - 40) + 'px');
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 900);
+      }
+    }
 
     document.getElementById('joinBtn').onclick = () => {
       roomCode = document.getElementById('room').value.toUpperCase();
@@ -157,6 +178,20 @@
         }
         animate();
       }, 2000);
+    });
+
+    socket.on('gameFinished', ({ scores, winners }) => {
+      clearInterval(progressInterval);
+      document.getElementById('display').style.display = 'none';
+      const overlay = document.getElementById('finalOverlay');
+      const winnerNames = document.getElementById('winnerNames');
+      const finalScores = document.getElementById('finalScores');
+      winnerNames.innerHTML = winners.map(w => `<span class="winner-chip">${w.name}</span>`).join('');
+      const list = scores.slice(0, 10).map((s, idx) => `<div class="final-row"><span class="rank">#${idx + 1}</span><span class="name">${s.name}</span><span class="score">${s.score} pts</span></div>`).join('');
+      finalScores.innerHTML = `<div class="final-list">${list || '<div class="final-row">No scores yet.</div>'}</div>`;
+      overlay.style.display = 'flex';
+      blastConfetti(160);
+      setTimeout(() => blastConfetti(120), 400);
     });
 
     socket.on('roomClosed', () => {
