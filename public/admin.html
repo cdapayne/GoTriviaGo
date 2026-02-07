@@ -15,6 +15,26 @@
     <div id="roomInfo"></div>
     <div id="setup" style="display:none;">
       <h2>Setup Categories and Questions</h2>
+      <div id="openTrivia" class="question-block">
+        <h3>Fetch from Open Trivia DB</h3>
+        <label>Number of questions <input id="openAmount" type="number" min="1" max="100" value="10"></label>
+        <label>Difficulty
+          <select id="openDifficulty">
+            <option value="any">Any</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </label>
+        <label>Category
+          <select id="openCategory"></select>
+        </label>
+        <label>Topic (keyword filter)<input id="openTopic" placeholder="e.g. Christmas, sports, history"></label>
+        <button id="fetchOpenTrivia">Fetch Trivia</button>
+        <button id="loadHolidayPack" type="button">Load Holiday Pack</button>
+        <button id="loadMegaHolidayPack" type="button">Load 50 Christmas Pack</button>
+        <div id="openStatus" class="hint"></div>
+      </div>
       <div id="aiSetup" class="question-block">
         <input id="apiKey" placeholder="OpenAI API Key">
         <textarea id="prompt" placeholder="Describe the trivia you want"></textarea>
@@ -26,8 +46,8 @@
         <select id="savedSetups"></select>
       </div>
       <label><input type="checkbox" id="randomize"> Randomize answers</label>
-      <label><input type="checkbox" id="includeRunGame" checked> Include Run Game</label>
-      <input id="timeLimit" type="number" placeholder="Time limit (seconds)">
+      <label><input type="checkbox" id="includeRunGame"> Include Run Game (disabled for now)</label>
+      <input id="timeLimit" type="number" placeholder="Time limit (seconds)" value="15" min="1">
       <button id="nextQuestion" style="display:none;">Start Question</button>
     </div>
     <div>
@@ -46,10 +66,154 @@
     const socket = io();
     let roomCode = null;
     let generatedData = null;
+    const openCategories = [
+      { id: '', name: 'Any Category' },
+      { id: 9, name: 'General Knowledge' },
+      { id: 10, name: 'Books' },
+      { id: 11, name: 'Film' },
+      { id: 12, name: 'Music' },
+      { id: 14, name: 'Television' },
+      { id: 15, name: 'Video Games' },
+      { id: 16, name: 'Board Games' },
+      { id: 17, name: 'Science & Nature' },
+      { id: 18, name: 'Computers' },
+      { id: 19, name: 'Mathematics' },
+      { id: 21, name: 'Sports' },
+      { id: 22, name: 'Geography' },
+      { id: 23, name: 'History' },
+      { id: 24, name: 'Politics' },
+      { id: 27, name: 'Animals' },
+      { id: 31, name: 'Anime & Manga' }
+    ];
+
+    const holidayPack = [
+      {
+        name: 'Classic Christmas Movies',
+        questions: [
+          { text: 'In "Home Alone", where are the McCallisters traveling for Christmas?', options: ['Paris', 'London', 'Rome', 'New York'], answer: 0 },
+          { text: 'What toy does Arnold Schwarzenegger chase in "Jingle All the Way"?', options: ['Turbo Man', 'Power Ranger', 'Buzz Lightyear', 'Action Ted'], answer: 0 },
+          { text: '"The Polar Express" runs on what fuel?', options: ['Magic', 'Coal', 'Electricity', 'Steam'], answer: 0 },
+          { text: 'Which department store hires Kris Kringle in "Miracle on 34th Street"?', options: ['Macy\'s', 'Gimbels', 'Bloomingdale\'s', 'Saks'], answer: 0 },
+          { text: 'Which actor voices Jack Skellington in "The Nightmare Before Christmas"?', options: ['Danny Elfman', 'Chris Sarandon', 'Johnny Depp', 'Jim Carrey'], answer: 1 }
+        ]
+      },
+      {
+        name: 'Holiday Music',
+        questions: [
+          { text: 'Who originally sang "All I Want for Christmas Is You"?', options: ['Mariah Carey', 'Ariana Grande', 'Whitney Houston', 'Celine Dion'], answer: 0 },
+          { text: '"Last Christmas" was released by which duo?', options: ['Wham!', 'Hall & Oates', 'Roxette', 'Savage Garden'], answer: 0 },
+          { text: 'Finish the lyric: "I don\'t want a lot for Christmas, there is just one thing I need..."', options: ['And I', 'And you', 'And him', 'And her'], answer: 0 },
+          { text: '"Rockin\' Around the Christmas Tree" was recorded by?', options: ['Brenda Lee', 'Dolly Parton', 'Judy Garland', 'Ella Fitzgerald'], answer: 0 },
+          { text: 'Which song begins, "City sidewalks, busy sidewalks..."?', options: ['Silver Bells', 'White Christmas', 'Jingle Bell Rock', 'Let It Snow'], answer: 0 }
+        ]
+      },
+      {
+        name: 'Winter Traditions',
+        questions: [
+          { text: 'Which plant is known as the "Christmas flower"?', options: ['Poinsettia', 'Holly', 'Mistletoe', 'Ivy'], answer: 0 },
+          { text: 'Hanukkah lasts how many nights?', options: ['8', '5', '7', '12'], answer: 0 },
+          { text: 'What beverage is most associated with leaving out for Santa in the U.S.?', options: ['Milk', 'Eggnog', 'Hot chocolate', 'Cider'], answer: 0 },
+          { text: 'Which country is credited with starting the tradition of Christmas trees?', options: ['Germany', 'United States', 'France', 'Sweden'], answer: 0 },
+          { text: 'In Sweden, the giant straw Yule Goat is famously built in which city?', options: ['Gävle', 'Stockholm', 'Gothenburg', 'Malmö'], answer: 0 }
+        ]
+      },
+      {
+        name: 'Festive Tech & Toys',
+        questions: [
+          { text: 'Which 90s toy sparked massive holiday demand with its "beanie" design?', options: ['Beanie Babies', 'Furby', 'Tamagotchi', 'Tickle Me Elmo'], answer: 0 },
+          { text: 'What gaming console launched with "Wii Sports" as a holiday hit?', options: ['Nintendo Wii', 'PlayStation 3', 'Xbox 360', 'Sega Dreamcast'], answer: 0 },
+          { text: 'Which brand popularized the "Instant Camera" often gifted during holidays?', options: ['Polaroid', 'Kodak', 'Fujifilm', 'Canon'], answer: 0 },
+          { text: 'Smart speaker that surged in holiday sales in 2016?', options: ['Amazon Echo', 'Google Home', 'Apple HomePod', 'Sonos One'], answer: 0 },
+          { text: 'Which company makes the Switch console, a common holiday bundle?', options: ['Nintendo', 'Sony', 'Microsoft', 'Sega'], answer: 0 }
+        ]
+      }
+    ];
+
+    const megaHolidayPack = [
+      {
+        name: 'Classic Christmas Movies',
+        questions: [
+          { text: 'In "Home Alone", where are the McCallisters traveling for Christmas?', options: ['Paris', 'London', 'Rome', 'New York'], answer: 0 },
+          { text: 'What toy does Arnold Schwarzenegger chase in "Jingle All the Way"?', options: ['Turbo Man', 'Power Ranger', 'Buzz Lightyear', 'Action Ted'], answer: 0 },
+          { text: '"The Polar Express" runs on what fuel?', options: ['Magic', 'Coal', 'Electricity', 'Steam'], answer: 0 },
+          { text: 'Which department store hires Kris Kringle in "Miracle on 34th Street"?', options: ['Macy\'s', 'Gimbels', 'Bloomingdale\'s', 'Saks'], answer: 0 },
+          { text: 'Which actor voices Jack Skellington in "The Nightmare Before Christmas"?', options: ['Danny Elfman', 'Chris Sarandon', 'Johnny Depp', 'Jim Carrey'], answer: 1 },
+          { text: 'In "Elf", what is the first rule of The Code of Elves?', options: ['Treat every day like Christmas', 'Spread cheer by singing loud', 'Candy canes for all', 'Believe in Santa'], answer: 0 },
+          { text: '"How the Grinch Stole Christmas" takes place in which town?', options: ['Whoville', 'Bedford Falls', 'Greendale', 'Pineville'], answer: 0 },
+          { text: 'In "Die Hard", what is the name of the Nakatomi security guard who lets John McClane in?', options: ['Argyle', 'Tony', 'Carl', 'Theo'], answer: 0 },
+          { text: 'Which ornament does Ralphie dream of in "A Christmas Story"?', options: ['Red Ryder BB gun', 'Glass pickle', 'Angel topper', 'Snow globe'], answer: 0 },
+          { text: 'In "The Santa Clause", what makes Scott Calvin become Santa?', options: ['Putting on Santa\'s suit', 'Making reindeer fly', 'Finding the sleigh', 'Delivering toys'], answer: 0 },
+          { text: 'Who plays the Ghost of Christmas Present in "Scrooged"?', options: ['Carol Kane', 'Bette Midler', 'Whoopi Goldberg', 'Goldie Hawn'], answer: 0 },
+          { text: 'In "National Lampoon\'s Christmas Vacation", what animal is hidden in the tree?', options: ['Squirrel', 'Raccoon', 'Possum', 'Rabbit'], answer: 0 },
+          { text: 'Which 1946 film popularized the phrase, "Every time a bell rings, an angel gets his wings"?', options: ['It\'s a Wonderful Life', 'White Christmas', 'Holiday Inn', 'Meet Me in St. Louis'], answer: 0 }
+        ]
+      },
+      {
+        name: 'Holiday Music',
+        questions: [
+          { text: 'Who originally sang "All I Want for Christmas Is You"?', options: ['Mariah Carey', 'Ariana Grande', 'Whitney Houston', 'Celine Dion'], answer: 0 },
+          { text: '"Last Christmas" was released by which duo?', options: ['Wham!', 'Hall & Oates', 'Roxette', 'Savage Garden'], answer: 0 },
+          { text: 'Finish the lyric: "I don\'t want a lot for Christmas, there is just one thing I need..."', options: ['And I', 'And you', 'And him', 'And her'], answer: 0 },
+          { text: '"Rockin\' Around the Christmas Tree" was recorded by?', options: ['Brenda Lee', 'Dolly Parton', 'Judy Garland', 'Ella Fitzgerald'], answer: 0 },
+          { text: 'Which song begins, "City sidewalks, busy sidewalks..."?', options: ['Silver Bells', 'White Christmas', 'Jingle Bell Rock', 'Let It Snow'], answer: 0 },
+          { text: 'Band Aid\'s 1984 charity single was titled?', options: ['Do They Know It\'s Christmas?', 'Feed the World Tonight', 'Sing for Hope', 'Christmas for All'], answer: 0 },
+          { text: 'Who croons "Blue Christmas"?', options: ['Elvis Presley', 'Bing Crosby', 'Frank Sinatra', 'Dean Martin'], answer: 0 },
+          { text: '"Feliz Navidad" includes lyrics in which two languages?', options: ['Spanish and English', 'Spanish and French', 'English and Portuguese', 'Spanish and Italian'], answer: 0 },
+          { text: '"Carol of the Bells" originates from which country?', options: ['Ukraine', 'Poland', 'Germany', 'Austria'], answer: 0 },
+          { text: 'Which group made "Little Drummer Boy/Peace on Earth" a duet classic with David Bowie?', options: ['Bing Crosby', 'Paul McCartney', 'Elton John', 'George Michael'], answer: 0 },
+          { text: 'Who sings "Christmas (Baby Please Come Home)" on the Phil Spector album?', options: ['Darlene Love', 'The Ronettes', 'The Crystals', 'Cher'], answer: 0 },
+          { text: '"Santa Baby" first became popular by which performer?', options: ['Eartha Kitt', 'Madonna', 'Kylie Minogue', 'Gwen Stefani'], answer: 0 },
+          { text: '"Run Rudolph Run" is most associated with which guitarist?', options: ['Chuck Berry', 'Keith Richards', 'Angus Young', 'BB King'], answer: 0 }
+        ]
+      },
+      {
+        name: 'Winter Traditions & Customs',
+        questions: [
+          { text: 'Which plant is known as the "Christmas flower"?', options: ['Poinsettia', 'Holly', 'Mistletoe', 'Ivy'], answer: 0 },
+          { text: 'Hanukkah lasts how many nights?', options: ['8', '5', '7', '12'], answer: 0 },
+          { text: 'What beverage is most associated with leaving out for Santa in the U.S.?', options: ['Milk', 'Eggnog', 'Hot chocolate', 'Cider'], answer: 0 },
+          { text: 'Which country is credited with starting the tradition of Christmas trees?', options: ['Germany', 'United States', 'France', 'Sweden'], answer: 0 },
+          { text: 'In Sweden, the giant straw Yule Goat is famously built in which city?', options: ['Gävle', 'Stockholm', 'Gothenburg', 'Malmö'], answer: 0 },
+          { text: 'In Italy, who delivers gifts to children on Epiphany Eve?', options: ['La Befana', 'Babbo Natale', 'Strega Bianca', 'La Reina'], answer: 0 },
+          { text: 'Kwanzaa lasts for how many days?', options: ['7', '5', '8', '10'], answer: 0 },
+          { text: 'Which spice is most associated with gingerbread?', options: ['Ginger', 'Nutmeg', 'Clove', 'Cinnamon'], answer: 0 },
+          { text: 'In Japan, a popular Christmas meal involves which fast food?', options: ['KFC', 'McDonald\'s', 'Pizza Hut', 'Subway'], answer: 0 },
+          { text: 'What do you traditionally hide in a Christmas pudding?', options: ['Coin', 'Almond', 'Cinnamon stick', 'Button'], answer: 0 },
+          { text: 'In Iceland, the Yule Cat is said to eat those who lack what?', options: ['New clothes', 'Warm soup', 'Snow boots', 'A tree'], answer: 0 },
+          { text: 'Which night marks the end of the Twelve Days of Christmas?', options: ['Twelfth Night', 'Boxing Day', 'New Year\'s Eve', 'Epiphany Eve'], answer: 0 }
+        ]
+      },
+      {
+        name: 'Festive Pop Culture & Tech',
+        questions: [
+          { text: 'Which 90s toy sparked massive holiday demand with its "beanie" design?', options: ['Beanie Babies', 'Furby', 'Tamagotchi', 'Tickle Me Elmo'], answer: 0 },
+          { text: 'What gaming console launched with "Wii Sports" as a holiday hit?', options: ['Nintendo Wii', 'PlayStation 3', 'Xbox 360', 'Sega Dreamcast'], answer: 0 },
+          { text: 'Which brand popularized the "Instant Camera" often gifted during holidays?', options: ['Polaroid', 'Kodak', 'Fujifilm', 'Canon'], answer: 0 },
+          { text: 'Smart speaker that surged in holiday sales in 2016?', options: ['Amazon Echo', 'Google Home', 'Apple HomePod', 'Sonos One'], answer: 0 },
+          { text: 'Which company makes the Switch console, a common holiday bundle?', options: ['Nintendo', 'Sony', 'Microsoft', 'Sega'], answer: 0 },
+          { text: 'Which smart lights are often used for synced holiday displays?', options: ['Philips Hue', 'GE Cync', 'Wyze Bulb', 'Nanoleaf'], answer: 0 },
+          { text: 'What wearable saw holiday demand in 2014 for step tracking?', options: ['Fitbit', 'Apple Watch', 'Garmin Vivosmart', 'Jawbone UP'], answer: 0 },
+          { text: 'Which VR headset had a big holiday push in 2016?', options: ['Oculus Rift', 'HTC Vive', 'PS VR', 'Samsung Gear VR'], answer: 0 },
+          { text: 'Name the 80s doll that was a huge holiday craze.', options: ['Cabbage Patch Kids', 'Barbie Dream Doll', 'Rainbow Brite', 'My Little Pony'], answer: 0 },
+          { text: 'Which console\'s "Red Ring" woes ruined some holidays?', options: ['Xbox 360', 'PS3', 'Wii U', 'Dreamcast'], answer: 0 },
+          { text: 'What 90s digital pet was a stocking stuffer sensation?', options: ['Tamagotchi', 'Digivice', 'Pixel Pet', 'NeoPet'], answer: 0 },
+          { text: 'Which film introduced Buddy the Elf\'s four food groups?', options: ['Elf', 'The Santa Clause', 'Fred Claus', 'Arthur Christmas'], answer: 0 },
+          { text: 'Which streaming show features the holiday song "Chrissy the Christmas Mouse"?', options: ['Stranger Things', 'BoJack Horseman', 'The Office', 'Community'], answer: 1 }
+        ]
+      }
+    ];
 
     document.getElementById('createRoom').onclick = () => {
       socket.emit('adminCreateRoom');
     };
+
+    const categorySelect = document.getElementById('openCategory');
+    openCategories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      categorySelect.appendChild(opt);
+    });
 
     socket.on('roomCreated', code => {
       roomCode = code;
@@ -133,7 +297,7 @@
         }
       }
       const runGame = document.getElementById('includeRunGame').checked;
-      socket.emit('adminSetup', { roomCode, categories, runGame });
+      socket.emit('adminSetup', { roomCode, categories, runGame: false });
       const name = prompt('Name this setup');
       if (name) {
         localStorage.setItem('setup_' + name, JSON.stringify({ categories, runGame }));
@@ -147,7 +311,7 @@
     document.getElementById('nextQuestion').onclick = () => {
       const randomize = document.getElementById('randomize').checked;
       const tl = parseInt(document.getElementById('timeLimit').value, 10);
-      socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? null : tl });
+      socket.emit('adminStartQuestion', { roomCode, randomize, timeLimit: isNaN(tl) ? 15 : tl });
       document.getElementById('nextQuestion').style.display = 'none';
     };
 
@@ -169,6 +333,87 @@
     socket.on('generationError', msg => {
       alert('Generation failed: ' + msg);
     });
+
+    function decodeHTMLEntities(str) {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = str;
+      return txt.value;
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    document.getElementById('loadHolidayPack').onclick = () => {
+      generatedData = JSON.parse(JSON.stringify(holidayPack));
+      renderEditable(generatedData);
+      document.getElementById('openStatus').textContent = 'Loaded Holiday Pack. Review, tweak, then "Save Setup" to approve.';
+    };
+
+    document.getElementById('loadMegaHolidayPack').onclick = () => {
+      generatedData = JSON.parse(JSON.stringify(megaHolidayPack));
+      renderEditable(generatedData);
+      document.getElementById('openStatus').textContent = 'Loaded 50-question Christmas Pack. Review, tweak, then "Save Setup" to approve.';
+    };
+
+    document.getElementById('fetchOpenTrivia').onclick = async () => {
+      const amount = parseInt(document.getElementById('openAmount').value, 10);
+      const status = document.getElementById('openStatus');
+      const difficulty = document.getElementById('openDifficulty').value;
+      const category = document.getElementById('openCategory').value;
+      const topic = document.getElementById('openTopic').value.trim().toLowerCase();
+      if (isNaN(amount) || amount < 1) {
+        alert('Please enter how many questions to fetch.');
+        return;
+      }
+      status.textContent = 'Loading questions...';
+      try {
+        let url = `https://opentdb.com/api.php?amount=${amount}&type=multiple`;
+        if (difficulty !== 'any') url += `&difficulty=${difficulty}`;
+        if (category) url += `&category=${category}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        let results = data.results || [];
+        if (!results.length) {
+          throw new Error('No questions returned from Open Trivia DB');
+        }
+        if (topic) {
+          const filtered = results.filter(item => {
+            const haystack = `${item.category} ${item.question} ${item.correct_answer} ${item.incorrect_answers.join(' ')}`.toLowerCase();
+            return haystack.includes(topic);
+          });
+          if (filtered.length) results = filtered;
+        }
+        const grouped = {};
+        results.forEach(item => {
+          const catName = decodeHTMLEntities(item.category || 'Trivia');
+          if (!grouped[catName]) grouped[catName] = [];
+          const decodedIncorrect = item.incorrect_answers.map(decodeHTMLEntities);
+          const correct = decodeHTMLEntities(item.correct_answer);
+          const options = shuffle([...decodedIncorrect, correct]);
+          const answer = options.indexOf(correct);
+          grouped[catName].push({
+            text: decodeHTMLEntities(item.question),
+            options,
+            answer
+          });
+        });
+        const categories = Object.entries(grouped).map(([name, questions]) => ({
+          name,
+          questions
+        }));
+        generatedData = categories;
+        renderEditable(generatedData);
+        const filteredNote = topic ? ` Filtered to ${results.length} matching "${topic}".` : '';
+        status.textContent = `Fetched ${results.length} questions.${filteredNote} Review, edit if needed, then click "Save Setup" to approve.`;
+      } catch (err) {
+        status.textContent = 'Failed to load trivia: ' + err.message;
+      }
+    };
 
     function refreshSaved() {
       const sel = document.getElementById('savedSetups');
@@ -192,7 +437,7 @@
       generatedData = cats;
       document.getElementById('includeRunGame').checked = saved.runGame !== false;
       renderEditable(generatedData);
-      socket.emit('adminSetup', { roomCode, categories: cats, runGame: document.getElementById('includeRunGame').checked });
+      socket.emit('adminSetup', { roomCode, categories: cats, runGame: false });
       const btn = document.getElementById('nextQuestion');
       btn.textContent = 'Start Question';
       btn.style.display = 'block';

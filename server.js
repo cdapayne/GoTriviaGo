@@ -45,27 +45,37 @@ function emitScores(roomCode) {
 function handleTimeUp(roomCode) {
   const room = rooms[roomCode];
   if (!room || !room.current) return;
+  const timedOut = [];
   Object.values(room.players).forEach(p => {
     if (!p.answered) {
       p.answered = true;
       p.answer = null;
       p.correct = false;
       p.time = room.timeLimit;
+      timedOut.push({ name: p.name, answer: null, correct: false, time: room.timeLimit });
     }
   });
   room.current = null;
   room.questionTimer = null;
+  timedOut.forEach(data => io.to(roomCode).emit('playerAnswered', data));
   io.to(roomCode).emit('timeUp');
-  if (room.runGame && room.questionCount % 5 === 0) {
-    startMiniGame(roomCode);
-  } else if (room.remaining.length > 0 && room.lastSettings) {
+  if (room.remaining.length > 0 && room.lastSettings) {
     setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+  } else {
+    endGame(roomCode);
   }
 }
 
 function startRunGame(roomCode) {
   const room = rooms[roomCode];
-  if (!room || room.miniGame) return;
+  if (!room || room.miniGame || room.disableMiniGames) return;
+  // Clear any existing mini game timer to avoid premature endings
+  if (room.miniGameTimer) {
+    clearTimeout(room.miniGameTimer);
+    room.miniGameTimer = null;
+  }
+  // Ensure we aren't still waiting on a previous mini game replay
+  room.awaitingReplay = false;
   const countdown = 3000; // 3 second countdown
   const duration = 12000; // 12 seconds of running
   room.miniGame = {
@@ -156,6 +166,8 @@ function endCoinTossGame(roomCode) {
 }
 
 function startMiniGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room || room.disableMiniGames) return;
   if (Math.random() < 0.5) {
     startRunGame(roomCode);
   } else {
@@ -173,6 +185,7 @@ function startQuestion(roomCode, randomize, timeLimit) {
     console.error(`startQuestion: room ${roomCode} not found or no questions remaining`);
     return;
   }
+  const seconds = typeof timeLimit === 'number' && !Number.isNaN(timeLimit) ? timeLimit : 15;
   room.lastSettings = { randomize, timeLimit };
   const idx = Math.floor(Math.random() * room.remaining.length);
   const sel = room.remaining.splice(idx, 1)[0];
@@ -192,13 +205,9 @@ function startQuestion(roomCode, randomize, timeLimit) {
 
   room.current = { ci: sel.ci, qi: sel.qi, options, answer };
   room.questionStart = Date.now();
-  room.timeLimit = timeLimit ? timeLimit * 1000 : null;
+  room.timeLimit = seconds * 1000;
   if (room.questionTimer) clearTimeout(room.questionTimer);
-  if (room.timeLimit) {
-    room.questionTimer = setTimeout(() => handleTimeUp(roomCode), room.timeLimit);
-  } else {
-    room.questionTimer = null;
-  }
+  room.questionTimer = setTimeout(() => handleTimeUp(roomCode), room.timeLimit);
   room.questionCount = (room.questionCount || 0) + 1;
 
   Object.values(room.players).forEach(p => {
@@ -215,6 +224,18 @@ function startQuestion(roomCode, randomize, timeLimit) {
     timeLimit: room.timeLimit,
     startTime: room.questionStart
   });
+}
+
+function endGame(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return;
+  const scores = getScores(room);
+  const topScore = scores.length ? scores[0].score : 0;
+  const winners = scores.filter(s => s.score === topScore);
+  io.to(roomCode).emit('gameFinished', { scores, winners });
+  if (room.admin) {
+    io.to(room.admin).emit('gameFinished', { scores, winners });
+  }
 }
 
 io.on('connection', socket => {
@@ -239,7 +260,8 @@ io.on('connection', socket => {
       questionCount: 0,
       miniGame: null,
       miniGameTimer: null,
-      runGame: true
+      runGame: false,
+      disableMiniGames: true
     };
     socket.join(code);
     socket.emit('roomCreated', code);
@@ -408,16 +430,16 @@ io.on('connection', socket => {
     player.correct = correct;
     player.time = Date.now() - room.questionStart;
     if (correct) player.score += 1;
-    io.to(roomCode).emit('playerAnswered', { name: player.name, answer, correct, time: player.time });
+    io.to(roomCode).emit('playerAnswered', { id: socket.id, name: player.name, answer, correct, time: player.time });
     emitScores(roomCode);
     const allAnswered = Object.values(room.players).every(p => p.answered);
     if (allAnswered) {
       if (room.questionTimer) { clearTimeout(room.questionTimer); room.questionTimer = null; }
       room.current = null;
-      if (room.runGame && room.questionCount % 5 === 0) {
-        startMiniGame(roomCode);
-      } else if (room.remaining.length > 0 && room.lastSettings) {
+      if (room.remaining.length > 0 && room.lastSettings) {
         setTimeout(() => startQuestion(roomCode, room.lastSettings.randomize, room.lastSettings.timeLimit), 3000);
+      } else {
+        endGame(roomCode);
       }
     }
   });
